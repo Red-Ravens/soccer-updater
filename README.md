@@ -6,7 +6,7 @@ This script runs daily and does three things:
 
 2. Compiles it into reddit- and /r/ussoccer-friendly text
 
-3. Updates the sidebar with match info via [pythonanywhere.com](https://wwpythonanywhere.com)
+3. Runs daily to updates the sidebar with match info via [pythonanywhere.com](https://wwpythonanywhere.com)
 
 
 #### Parsing US Soccer
