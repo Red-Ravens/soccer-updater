@@ -26,8 +26,8 @@ I currently use HTMLParser and some code thrown together by someone else to upda
 On occasion, there is an error due to the JSON. I suspect that the error is on importio's end. Here is the traceback:
 
     Traceback (most recent call last):
-    File "/home/redravens/updater/SoccerUpdaterImportio.py", line 482, in new_main  
+    File "SoccerUpdaterImportio.py", line 482, in new_main  
     make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now) 
-    File "/home/redravens/updater/SoccerUpdaterImportio.py",  
+    File "SoccerUpdaterImportio.py",  
     line 202, in make_schedule for match in schedule_data['results']: 
     KeyError: 'results'
