@@ -9,6 +9,10 @@ This script runs daily and does three things:
 3. Runs daily to update the sidebar with match info via [pythonanywhere.com](https://wwpythonanywhere.com)
 
 
+The `updater.py` file uses python3.5 and the `SoccerUpdaterImportio.py` file uses python2.7  
+The only difference between the two (besides python3 printing style) is the way in which the sidebar is updated. `SoccerUpdaterImportio.py` uses the `HTMLParser` library, which was a solution I found online. `updater.py` uses string concatention.
+
+
 #### Parsing US Soccer
 
 Because I had always intended to use [pythonanywhere](https://wwpythonanywhere.com) to run this script daily, I had to develop a way to use their website which has strict whitelists and blacklists. Since US Soccer doesn't currently have an API that provides match info, I used [importio](https://www.import.io/) to build a custom JSON API that also complies with pythonanywhere's whitelist. The two links in `SoccerUpdaterImportio.py` return full upcoming match info and full past match info, respectively. 
