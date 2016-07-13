@@ -1,5 +1,4 @@
 #!/usr/bin/env python3.5
-# python /home/redravens/updater/SoccerUpdaterImportio.py
 #####################################
 #    LAST UPDATED     01 JUL 2016   #
 #####################################
