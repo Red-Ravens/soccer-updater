@@ -10,7 +10,7 @@ This script runs daily and does three things:
 
 
 The `updater.py` file uses python3.5 and the `SoccerUpdaterImportio.py` file uses python2.7  
-The only difference between the two (besides python3 printing style) is the way in which the sidebar is updated. `SoccerUpdaterImportio.py` uses the `HTMLParser` library, which was a solution I found online. `updater.py` uses string concatention.
+The only difference between the two is the way in which the sidebar is updated. `SoccerUpdaterImportio.py` uses the `HTMLParser` library, which was a solution I found online. `updater.py` uses string concatention.
 
 
 #### Parsing US Soccer
@@ -25,7 +25,7 @@ The next section parses the importio JSON and creates tables. The tables are div
 
 `SoccerUpdaterImportio.py` uses the HTMLParser standard library and PRAW to update the sidebar.
 
-`updater.py` uses string contatenation and search to paste the table markdown between a `[](#start)` and a `[](#end)` tag in the sidebar code.
+`updater.py` uses string contatenation and search to paste the table markdown between a `[](#start)` and a `[](#end)` tag in the sidebar code and PRAW to update the sidebar.
 
 ### Known Issues
 
