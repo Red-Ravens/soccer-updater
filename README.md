@@ -23,15 +23,10 @@ The next section parses the importio JSON and creates tables. The tables are div
 
 #### Updating the sidebar
 
-I currently use HTMLParser and some code thrown together by someone else to update the sidebar. It works, so I haven't bothered to change it.
+`SoccerUpdaterImportio.py` uses the HTMLParser standard library and PRAW to update the sidebar.
+
+`updater.py` uses string contatenation and search to paste the table markdown between a `[](#start)` and a `[](#end)` tag in the sidebar code.
 
 ### Known Issues
 
-On occasion, there is an error due to the JSON. I suspect that the error is on importio's end. Here is the traceback:
-
-    Traceback (most recent call last):
-    File "SoccerUpdaterImportio.py", line 482, in new_main  
-    make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now) 
-    File "SoccerUpdaterImportio.py",  
-    line 202, in make_schedule for match in schedule_data['results']: 
-    KeyError: 'results'
+None at this time.
