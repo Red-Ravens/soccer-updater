@@ -7,6 +7,7 @@ Gets US soccer matches and updates the sidebar
 """
 import json
 import re
+from time import sleep
 import traceback
 import logging
 import logging.handlers
@@ -22,11 +23,6 @@ def get_importio(link):
     :param link: Importio link
     :return: JSON that the importio link yields
     """
-    '''
-    with requests.Session() as s:
-        url = s.get(link).text
-        s.close()
-    '''
     url = requests.get(link).text
     return json.loads(url)
 
@@ -44,7 +40,7 @@ def fix_venue(venue):
                  'Serbia', 'Brazil', 'Trinidad & Tobago', 'Colombia',
                  'Guatemala', 'Jamaica', 'Grenada',
                  'Croatia', 'Spain', 'Argentina', 'Puerto Rico',
-                 'Papua New Guinea', 'Cuba', 'Jordan']
+                 'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines']
 
     cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
               'Frisco': 'Dallas', 'Carson': 'Los Angeles',
@@ -55,7 +51,10 @@ def fix_venue(venue):
 
     if len(venue) > 4:
         if any(country in venue for country in countries):
-            start = venue.index(',') + 2
+            try:
+                start = venue.index(',') + 2
+            except ValueError:
+                start = venue.index(';') + 2
             venue = '@' + venue[start:].strip()
         else:
             try:
@@ -145,6 +144,7 @@ def fix_watch(watch):
     :param watch: String of channel info
     :return: Fixed watch with one channel
     """
+    watch = watch.replace('|', '').strip()
     if ',' in watch:
         watch = watch[:watch.index(',')]
     else:
@@ -155,7 +155,7 @@ def fix_watch(watch):
 
     watches = {'fox sports 1': 'FS1 ', 'FS1': 'FS1 ', 'fox sports 2': 'FS2 ',
                'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ', 'fox soccer plus':
-               'FSocP ', 'bein': 'beIN ', 'ussoccer.com': 'ussoccer'}
+               'FSocP ', 'bein': 'beIN', 'ussoccer.com': 'ussoccer'}
 
     watch = watches[watch.lower()] if watch.lower() in watches.keys() else watch
 
@@ -209,12 +209,15 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
         try:
             opponent = match['opponent/_text']
             opponent = opponent.replace('- Presented by Liberty Mutual Insurance', '')
+            if 'the ' in opponent:
+                opponent = opponent.replace('the ', '')
         except KeyError:
             opponent = 'TBD'
         time = match['time']
         try:
             watch = match['watch'].strip().replace('TICKETS', '')
             watch = re.sub(r'^Ticket Info *', '', watch)
+            watch = re.sub(r'^| Buy Tickets *', '', watch)
         except KeyError:
             watch = ' '
 
@@ -569,7 +572,7 @@ def startbot():
 
         new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
                  new_refresh_token_outer,
-                 new_access_outer, sendmessage=False, debug=False)
+                 new_access_outer, sendmessage=True, debug=False)
 
     else:
         with open('/home/redravens/updater/matchthreader.txt') as filep:
@@ -579,8 +582,13 @@ def startbot():
 
         new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
                  new_refresh_token_outer,
-                 new_access_outer, sendmessage=False, debug=True)
+                 new_access_outer, sendmessage=True, debug=False)
 
 
 if __name__ == '__main__':
-    startbot()
+    for ___ in range(4):
+        try:
+            startbot()
+            break
+        except KeyError:
+            sleep(10)
