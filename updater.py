@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     01 JUL 2016   #
+#    LAST UPDATED     28 AUG 2016   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -15,6 +15,7 @@ import os
 import datetime
 import requests
 import praw
+import pushbullet
 
 
 def get_importio(link):
@@ -25,6 +26,20 @@ def get_importio(link):
     """
     url = requests.get(link).text
     return json.loads(url)
+
+
+def push(text, details):
+    """
+    Push a message to computer
+    :param text: MNT or WNT
+    :param details: Match details
+    :return: None
+    """
+    token = 'a4byNQVmWNSPIwYuEHV4YwsQi9RmDPCt'
+    pb = Pushbullet(token)
+    lst = details.split('?')
+    pb.push_note('{} match today at {} on {}'.format(text, lst[4], lst[3]),
+                 '', device=pb.get_device('Computer'))
 
 
 def fix_venue(venue):
@@ -268,22 +283,22 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
                                                      venue, date, watch, time, matchtype)
                 wnt_times += 1
 
-            elif 'U-23 MNT' in opponent and current_year == year:
+            elif 'U-23 MNT' in opponent and current_year == year and u23mnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-23 MNT vs *', '', opponent)
                 u23mnt_table = construct_schedule_table('U-23 MNT', u23mnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-            elif 'U-23 WNT' in opponent and current_year == year:
+            elif 'U-23 WNT' in opponent and current_year == year and u23wnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-23 WNT vs *', '', opponent)
                 u23wnt_table = construct_schedule_table('U-23 WNT', u23wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-            elif 'U-20 MNT' in opponent and current_year == year:
+            elif 'U-20 MNT' in opponent and current_year == year and u20mnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-20 MNT vs *', '', opponent)
                 u20mnt_table = construct_schedule_table('U-20 MNT', u20mnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-            elif 'U-20 WNT' in opponent and current_year == year:
+            elif 'U-20 WNT' in opponent and current_year == year and u20wnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-20 WNT vs *', '', opponent)
                 u20wnt_table = construct_schedule_table('U-20 WNT', u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
@@ -517,8 +532,9 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
             wnt_match = 'Unable to determine WNT next match'
 
         if sendmessage:
-            red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
-            red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
+            # TODO: Fix RPI, uncomment these
+            # red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
+            # red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
             if mnt_match_today:
                 red.send_message('ussoccer_bot', "MNT match today", mnt_match)
             if wnt_match_today:
@@ -572,7 +588,7 @@ def startbot():
 
         new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
                  new_refresh_token_outer,
-                 new_access_outer, sendmessage=True, debug=False)
+                 new_access_outer, sendmessage=False, debug=True)
 
     else:
         with open('/home/redravens/updater/matchthreader.txt') as filep:
@@ -586,9 +602,17 @@ def startbot():
 
 
 if __name__ == '__main__':
-    for ___ in range(4):
+    try:
+        startbot()
+    except KeyError:
+        print('Encountered KeyError')
+        sleep(10)
         try:
             startbot()
-            break
         except KeyError:
+            print('Encountered KeyError')
             sleep(10)
+            try:
+                startbot()
+            except KeyError:
+                print('Encountered KeyError x 3, quitting')
