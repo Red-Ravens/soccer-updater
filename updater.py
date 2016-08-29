@@ -15,7 +15,6 @@ import os
 import datetime
 import requests
 import praw
-import pushbullet
 
 
 def get_importio(link):
@@ -28,18 +27,26 @@ def get_importio(link):
     return json.loads(url)
 
 
-def push(text, details):
+def push(text, details, r):
     """
     Push a message to computer
     :param text: MNT or WNT
     :param details: Match details
+    :param r: PRAW instance
     :return: None
     """
-    token = 'blah'
-    pb = Pushbullet(token)
-    lst = details.split('?')
-    pb.push_note('{} match today at {} on {}'.format(text, lst[4], lst[3]),
-                 '', device=pb.get_device('Computer'))
+    try:
+        from pushbullet import Pushbullet
+        with open('token.txt') as files:
+            token = files.read().strip()
+        pb = Pushbullet(token)
+        lst = details.split('?')
+        pb.push_note('{} match today at {} on {}'.format(text, lst[4], lst[3]),
+                     '', device=pb.get_device('Computer'))
+    except ImportError:
+        lst = details.split('?')
+        r.send_message('RedRavens', '{} Match Today'.format(text),
+                       '{} match today at {} on {}'.format(text, lst[4], lst[3]))
 
 
 def fix_venue(venue):
@@ -533,13 +540,17 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
 
         if sendmessage:
             # TODO: Fix RPI, uncomment these
-            # red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
-            # red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
+            '''red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
+            red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
             if mnt_match_today:
                 red.send_message('ussoccer_bot', "MNT match today", mnt_match)
             if wnt_match_today:
                 red.send_message('ussoccer_bot', "WNT match today", wnt_match)
-            red.send_message('ussoccer_bot', 'Pi command', 'Dailies')
+            red.send_message('ussoccer_bot', 'Pi command', 'Dailies')'''
+            if mnt_match_today:
+                push(mnt_match, 'MNT', redd)
+            if wnt_match_today:
+                push(wnt_match, 'WNT', redd)
 
         if updatedsidebar and '?' in mnt_match and '?' in wnt_match:
             logging.warning("INFO: Updated sidebar and sent next matches")
@@ -610,7 +621,7 @@ if __name__ == '__main__':
         try:
             startbot()
         except KeyError:
-            print('Encountered KeyError')
+            print('Encountered KeyError x 2')
             sleep(10)
             try:
                 startbot()
