@@ -35,7 +35,7 @@ def push(text, details):
     :param details: Match details
     :return: None
     """
-    token = 'a4byNQVmWNSPIwYuEHV4YwsQi9RmDPCt'
+    token = 'blah'
     pb = Pushbullet(token)
     lst = details.split('?')
     pb.push_note('{} match today at {} on {}'.format(text, lst[4], lst[3]),
