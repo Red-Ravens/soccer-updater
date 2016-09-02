@@ -540,17 +540,14 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
 
         if sendmessage:
             # TODO: Fix RPI, uncomment these
-            '''red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
+            red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
             red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
             if mnt_match_today:
-                red.send_message('ussoccer_bot', "MNT match today", mnt_match)
-            if wnt_match_today:
-                red.send_message('ussoccer_bot', "WNT match today", wnt_match)
-            red.send_message('ussoccer_bot', 'Pi command', 'Dailies')'''
-            if mnt_match_today:
                 push(mnt_match, 'MNT', redd)
+                # red.send_message('ussoccer_bot', "MNT match today", mnt_match)
             if wnt_match_today:
                 push(wnt_match, 'WNT', redd)
+                # red.send_message('ussoccer_bot', "WNT match today", wnt_match)
 
         if updatedsidebar and '?' in mnt_match and '?' in wnt_match:
             logging.warning("INFO: Updated sidebar and sent next matches")
