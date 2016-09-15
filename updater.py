@@ -40,13 +40,13 @@ def push(text, details, r):
         with open('token.txt') as files:
             token = files.read().strip()
         pb = Pushbullet(token)
-        lst = details.split('?')
-        pb.push_note('{} match today at {} on {}'.format(text, lst[4], lst[3]),
+        lst = text.split('?')
+        pb.push_note('{} match today at {} on {}'.format(details, lst[4], lst[3]),
                      '', device=pb.get_device('Computer'))
     except ImportError:
-        lst = details.split('?')
-        r.send_message('RedRavens', '{} Match Today'.format(text),
-                       '{} match today at {} on {}'.format(text, lst[4], lst[3]))
+        lst = text.split('?')
+        r.send_message('RedRavens', '{} Match Today'.format(details),
+                       '{} match today at {} on {}'.format(details, lst[4], lst[3]))
 
 
 def fix_venue(venue):
@@ -67,7 +67,7 @@ def fix_venue(venue):
     cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
               'Frisco': 'Dallas', 'Carson': 'Los Angeles',
               'St.': 'St. Louis', 'Alto': 'Palo Alto',
-              'Harrison': 'Newark', 'Sandy': 'Salt Lake City',
+              'Harrison': 'Newark', 'Sandy': 'Salt Lake City', 'Sandy Utah': 'Salt Lake City',
               'Lakewood Ranch': 'Sarasota', 'Glendale': 'Phoenix',
               'Belo Horizonte': 'Brazil', 'Manaus': 'Brazil'}
 
@@ -116,9 +116,9 @@ def fix_time(time):
             if local > 12:
                 local -= 12
                 if 'PM' in time[ind:].upper() and '12' in time:
-                    time = '{}AM'.format(local)
+                    time = '{}{}'.format(local, time[ind:])
                 else:
-                    time = '{}PM'.format(local)
+                    time = '{}{}'.format(local, time[ind:])
             else:
                 time = str(local) + time[ind:]
         else:
