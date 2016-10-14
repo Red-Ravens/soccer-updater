@@ -55,6 +55,7 @@ def fix_venue(venue):
     :param venue: String of a stadium, city, country/state
     :return: String of city, or @country if away
     """
+    venue = venue.replace("Match Guide", "").strip()
     countries = ['Netherlands', 'England', 'Chile', 'Sweden',
                  'Canada', 'Denmark', 'France',
                  'Costa Rica', 'Honduras', 'Mexico', 'Switzerland',
@@ -184,20 +185,16 @@ def fix_watch(watch):
     return watch
 
 
-def fix_matchtype(opponent, date):
+def fix_matchtype(opponent):
     """
     Determine the match type
     :param opponent: String of team vs opponent
-    :param date: Abbreviated date
     :return: String of matchtype
     """
     matchtype = 'F'
-    if 'Trinidad' in opponent or 'Grenadines' in opponent or 'Guatemala' in opponent:
+    countries = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
+    if any(country in opponent for country in countries):
         matchtype = 'WCQ'
-    if 'U-' not in opponent and 'Aug' in date and 'WNT' in opponent:
-        matchtype = 'O'
-    if 'U-' not in opponent and 'Jun' in date and 'MNT' in opponent:
-        matchtype = 'CA 3P'
     return matchtype
 
 
@@ -230,7 +227,8 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
             venue = 'TBD'
         try:
             opponent = match['opponent/_text']
-            opponent = opponent.replace('- Presented by Liberty Mutual Insurance', '')
+            if 'present' in opponent.lower():
+                opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
             if 'the ' in opponent:
                 opponent = opponent.replace('the ', '')
         except KeyError:
@@ -247,7 +245,7 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
         venue = fix_venue(venue)
         watch = fix_watch(watch)
         time = fix_time(time)
-        matchtype = fix_matchtype(opponent, date)
+        matchtype = fix_matchtype(opponent)
 
         datelist = [months[date.split('. ')[0]], int(date.split('. ')[1])]
 
@@ -355,7 +353,8 @@ def make_results(results_data, mnttimes, wnttimes, limit):
         date = match['date']
         result = match['result']
         opponent = match['opponent/_text']
-        opponent = opponent.replace("- Presented by Liberty Mutual Insurance", '')
+        if 'present' in opponent.lower():
+            opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
 
         if 'MNT' in opponent and 'U-' not in opponent and mnttimes < limit:
             opponent = re.sub(r'.*MNT vs *', '', opponent)
@@ -383,6 +382,7 @@ def construct_results_table(team, table, date, opponent, result):
     :param result: W/D/L
     :return: Edited table
     """
+    opponent = opponent.replace('the ', '')
     if 'L' in result:
         result = '[{}](#bar-3-red)'.format(result)
     if 'W' in result:
