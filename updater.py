@@ -1,12 +1,13 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     28 AUG 2016   #
+#    LAST UPDATED     26 FEB 2017   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
 """
 import json
 import re
+import sys
 from time import sleep
 import traceback
 import logging
@@ -15,9 +16,10 @@ import os
 import datetime
 import requests
 import praw
+import ussoccerapi
 
 
-def get_importio(link):
+def get_importio(link: str) -> json:
     """
     Given an importio link, returns the json data
     :param link: Importio link
@@ -27,7 +29,81 @@ def get_importio(link):
     return json.loads(url)
 
 
-def push(text, details, r):
+def soccer():
+    """
+    Fix stuff
+    :return: None
+    """
+    if sys.platform == 'linux' and 'pi' in os.getcwd():
+        with open('/media/pi/USB20FD/Updater/.ussoccer.txt') as filep:
+            key, refresh, access = filep.read().split('\n')
+        user_agent = "/r/ussoccer RPI server v2.6 by RedRavens"
+        r = praw.Reddit(user_agent, oauth_client_id='_3vsO2wedhIMtw',
+                        oauth_client_secret=key,
+                        oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback')
+
+        access_information = {'access_token': access,
+                              'refresh_token': refresh,
+                              'scope': {'account creddits edit flair history identity livemanage modconfig '
+                                        'modcontributors modflair modlog modothers modposts modself modwiki '
+                                        'mysubreddits privatemessages read '
+                                        'report save submit subscribe vote wikiedit wikiread'}
+                              }
+        access = r.refresh_access_information(access_information['refresh_token'])
+        r.set_access_credentials(**access)
+
+        for msg in r.get_unread(update_user=True, limit=None):
+            if 'MNT next match' in msg.subject:
+                msg.mark_as_read()
+                path = '/media/pi/USB20FD/MatchThreader/MNT.txt'
+                with open(path, 'w') as filep:
+                    filep.write(msg.body)
+                print('Wrote MNT next match')
+            elif 'WNT next match' in msg.subject:
+                msg.mark_as_read()
+                path1 = '/media/pi/USB20FD/MatchThreader/WNT.txt'
+                with open(path1, 'w') as filep:
+                    filep.write(msg.body)
+                print('Wrote WNT next match')
+
+        r.clear_authentication()
+
+    elif sys.platform == 'darwin':
+        with open('/Users/Alex/Documents/Python3/Updater/.ussoccer.txt') as filep:
+            key, refresh, access = filep.read().split('\n')
+        user_agent = "/r/ussoccer RPI server v2.6 by RedRavens"
+        r = praw.Reddit(user_agent, oauth_client_id='_3vsO2wedhIMtw',
+                        oauth_client_secret=key,
+                        oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback')
+
+        access_information = {'access_token': access,
+                              'refresh_token': refresh,
+                              'scope': {'account creddits edit flair history identity livemanage modconfig '
+                                        'modcontributors modflair modlog modothers modposts modself modwiki '
+                                        'mysubreddits privatemessages read '
+                                        'report save submit subscribe vote wikiedit wikiread'}
+                              }
+        access = r.refresh_access_information(access_information['refresh_token'])
+        r.set_access_credentials(**access)
+
+        for msg in r.get_unread(update_user=True, limit=None):
+            if 'MNT next match' in msg.subject:
+                msg.mark_as_read()
+                path = '/Users/Alex/Documents/Python/MatchThreader/MNT.txt'
+                with open(path, 'w') as filep:
+                    filep.write(msg.body)
+                print('Wrote MNT next match')
+            elif 'WNT next match' in msg.subject:
+                msg.mark_as_read()
+                path1 = '/Users/Alex/Documents/Python/MatchThreader/WNT.txt'
+                with open(path1, 'w') as filep:
+                    filep.write(msg.body)
+                print('Wrote WNT next match')
+
+        r.clear_authentication()
+
+
+def push(text: str, details: str, r: praw) -> None:
     """
     Push a message to computer
     :param text: MNT or WNT
@@ -49,7 +125,7 @@ def push(text, details, r):
                        '{} match today at {} on {}'.format(details, lst[4], lst[3]))
 
 
-def fix_venue(venue):
+def fix_venue(venue: str) -> str:
     """
     Fixes stadia information
     :param venue: String of a stadium, city, country/state
@@ -98,7 +174,7 @@ def fix_venue(venue):
     return venue
 
 
-def fix_time(time):
+def fix_time(time: str) -> str:
     """
     Change the time format
     :param time: String of time in x:xx PM format
@@ -145,23 +221,21 @@ def fix_time(time):
     return time
 
 
-def fix_date(date, now):
+def fix_date(input_: str, dontcare: bool=False) -> tuple:
     """
     Amend the default date format
-    :param date: String of a full date
-    :param now: datetime.datetime.now()
-    :return: Strings of abbreviated date and current year
+    :param input_: String of a full date
+    :param dontcare:
+    :return: (Datetime object of scraped date, string of year of datetime object)
     """
-    year = date[-4:-1] + date[-1]
-    current_year = str(now.year)
-    date = date.replace(" " + current_year, '')
-    date = date[0:3] + '. ' + date[-3:-1].strip()
-    date = date.strip()
-
-    return date, year
+    if not dontcare:
+        return datetime.datetime.strptime(input_, '%B %d, %Y').date(), \
+               str(datetime.datetime.strptime(input_, '%B %d, %Y').year)
+    else:
+        return datetime.datetime.strptime(input_, '%B %d, %Y').date()
 
 
-def fix_watch(watch):
+def fix_watch(watch: str) -> str:
     """
     Fix the default channel info
     :param watch: String of channel info
@@ -178,35 +252,38 @@ def fix_watch(watch):
 
     watches = {'fox sports 1': 'FS1 ', 'FS1': 'FS1 ', 'fox sports 2': 'FS2 ',
                'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ', 'fox soccer plus':
-               'FSocP ', 'bein': 'beIN', 'ussoccer.com': 'ussoccer'}
+               'FSocP ', 'bein': 'beIN', 'ussoccer.com': 'ussoccer', '': '?', ' ': '?'}
 
     watch = watches[watch.lower()] if watch.lower() in watches.keys() else watch
 
     return watch
 
 
-def fix_matchtype(opponent):
+def fix_matchtype(opponent: str) -> str:
     """
     Determine the match type
     :param opponent: String of team vs opponent
     :return: String of matchtype
     """
     matchtype = 'F'
+    sbc = ['Germany', 'England', 'France']
     countries = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
-    if any(country in opponent for country in countries):
+    if any(country in opponent for country in countries) and 'U-' not in opponent:
         matchtype = 'WCQ'
+    if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in sbc):
+        matchtype = 'T'
     return matchtype
 
 
-def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now):
+def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule_data: json,
+                  limit: int) -> tuple:
     """
     Make a string of reddit markup tables that comprise upcoming matches
-    :param schedule_data: JSON data of all the upcoming matches
-    :param current_year: Current Gregorian year, as a string
+    # :param schedule_data: JSON data of all the upcoming matches
+    :param current_year: Current Gregorian year, **as a string**
     :param mnt_times: How many MNT matches have been done so far
     :param wnt_times: How many WNT matches have been done so far
     :param limit: How many matches per table
-    :param now: datetime.datetime.now()
     :return: mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table,
             u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today
     """
@@ -215,58 +292,58 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
     mnt_match, wnt_match = '', ''
     mnt_sendmatch, wnt_sendmatch, mnt_match_today, wnt_match_today = True, True, False, False
 
-    months = {'Jan': 1, 'Feb': 2, 'Mar': 3, 'Apr': 4, 'May': 5, 'Jun': 6,
-              'Jul': 7, 'Aug': 8, 'Sep': 9, 'Oct': 10, 'Nov': 11, 'Dec': 12}
-    timelist = [now.month, now.day]
-
-    for match in schedule_data['results']:
-        date = match['date']
+    for match in ussoccerapi.schedule():
+        # (date, time, opponent, venue, watch)
+        # (  0,    1,     2    ,   3  ,   4  )
+        print(match)
+        date = match[0]
+        # date = match['date']
         try:
-            venue = match['venue']
+            venue = match[3]
+            # venue = match[3]
         except KeyError:
             venue = 'TBD'
         try:
-            opponent = match['opponent/_text']
+            # opponent = match['opponent/_text']
+            opponent = match[2]
             if 'present' in opponent.lower():
                 opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
             if 'the ' in opponent:
                 opponent = opponent.replace('the ', '')
         except KeyError:
             opponent = 'TBD'
-        time = match['time']
+        # time = match['time']
+        time = match[1]
         try:
-            watch = match['watch'].strip().replace('TICKETS', '')
+            # watch = match['watch'].strip().replace('TICKETS', '')
+            watch = match[4].strip().replace('TICKETS', '')
             watch = re.sub(r'^Ticket Info *', '', watch)
             watch = re.sub(r'^| Buy Tickets *', '', watch)
         except KeyError:
             watch = ' '
 
-        date, year = fix_date(date, now)
+        date, year = fix_date(date)
         venue = fix_venue(venue)
         watch = fix_watch(watch)
         time = fix_time(time)
         matchtype = fix_matchtype(opponent)
 
-        datelist = [months[date.split('. ')[0]], int(date.split('. ')[1])]
-
-        samemonth = datelist[0] == timelist[0] and datelist[1] >= timelist[1]
-
-        if datelist[0] > timelist[0] or samemonth:
+        if date >= datetime.datetime.today().date():
             if 'MNT' in opponent and 'U-' not in opponent and current_year == year and \
                     mnt_times < limit and mnt_sendmatch:
                 opponent = re.sub(r'.*MNT vs *', '', opponent)
                 mnt_sendmatch = False
-                mnt_table = construct_schedule_table('MNT', mnt_table, opponent,
-                                                                venue, date, watch, time, matchtype)
+                mnt_table = construct_schedule_table("MEN'S NATIONAL TEAM", mnt_table, opponent,
+                                                     venue, date, watch, time, matchtype)
                 mnt_times += 1
                 mnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if datelist[0] == timelist[0] and datelist[1] == timelist[1]:
+                if date == datetime.datetime.today().date():
                     mnt_match_today = True
 
             elif 'MNT' in opponent and 'U-' not in opponent and \
                             current_year == year and mnt_times < limit:
                 opponent = re.sub(r'.*MNT vs *', '', opponent)
-                mnt_table = construct_schedule_table('MNT', mnt_table, opponent,
+                mnt_table = construct_schedule_table("MEN'S NATIONAL TEAM", mnt_table, opponent,
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
 
@@ -274,45 +351,46 @@ def make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
                      current_year == year and wnt_times < limit and wnt_sendmatch:
                 opponent = re.sub(r'.*WNT vs *', '', opponent)
                 wnt_sendmatch = False
-                wnt_table = construct_schedule_table('WNT', wnt_table, opponent,
+                wnt_table = construct_schedule_table("WOMEN'S NATIONAL TEAM", wnt_table, opponent,
                                                      venue, date, watch, time, matchtype)
                 wnt_times += 1
                 wnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if datelist[0] == timelist[0] and datelist[1] == timelist[1]:
+                if date == datetime.datetime.today().date():
                     wnt_match_today = True
 
             elif 'WNT' in opponent and 'U-' not in opponent and \
                             current_year == year and wnt_times < limit:
                 opponent = re.sub(r'.*WNT vs *', '', opponent)
-                wnt_table = construct_schedule_table('WNT', wnt_table, opponent,
+                wnt_table = construct_schedule_table("WOMEN'S NATIONAL TEAM", wnt_table, opponent,
                                                      venue, date, watch, time, matchtype)
                 wnt_times += 1
 
             elif 'U-23 MNT' in opponent and current_year == year and u23mnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-23 MNT vs *', '', opponent)
-                u23mnt_table = construct_schedule_table('U-23 MNT', u23mnt_table, opponent,
+                u23mnt_table = construct_schedule_table("U-23 MEN'S NATIONAL TEAM", u23mnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
             elif 'U-23 WNT' in opponent and current_year == year and u23wnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-23 WNT vs *', '', opponent)
-                u23wnt_table = construct_schedule_table('U-23 WNT', u23wnt_table, opponent,
+                u23wnt_table = construct_schedule_table("U-23 WOMEN'S NATIONAL TEAM", u23wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
             elif 'U-20 MNT' in opponent and current_year == year and u20mnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-20 MNT vs *', '', opponent)
-                u20mnt_table = construct_schedule_table('U-20 MNT', u20mnt_table, opponent,
+                u20mnt_table = construct_schedule_table("U-20 MEN'S NATIONAL TEAM", u20mnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
             elif 'U-20 WNT' in opponent and current_year == year and u20wnt_table.count('\n') <= limit + 2:
                 opponent = re.sub(r'.*U-20 WNT vs *', '', opponent)
-                u20wnt_table = construct_schedule_table('U-20 WNT', u20wnt_table, opponent,
+                u20wnt_table = construct_schedule_table("U-20 WOMEN'S NATIONAL TEAM", u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
     return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match,\
            wnt_match, mnt_match_today, wnt_match_today
 
 
-def construct_schedule_table(team, table, opponent, venue, date, watch, time, matchtype):
+def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: str,
+                             watch: str, time: str, matchtype: str) -> str:
     """
     Construct a reddit markup table
     :param team: String of team
@@ -325,45 +403,54 @@ def construct_schedule_table(team, table, opponent, venue, date, watch, time, ma
     :param matchtype: String of matchtype
     :return: Void, edits table
     """
+    if '@' in venue:
+        opponent = '@{}'.format(opponent)
     if table:
-        table += "|[{} ({})](#s)|[{}](#s)|[{} {}](#s)|[{}](#s)|\n".format(opponent, venue,
-                                                                          date, watch, time,
-                                                                          matchtype)
+        table += "{0}|{1:%b. %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
     else:
-        table = '#{}\n| Team   | Date  | Time (ET)  | ' \
-                'Type |\n|:-----------|:------------:|:------------:|----------:|\n'.format(team)
-        table += "|[{} ({})](#s)|[{}](#s)|[{} {}](#s)|[{}](#s)|\n".format(opponent, venue,
-                                                                          date, watch, time,
-                                                                          matchtype)
+        table = "#####{}\n Team   | Date  | Time (ET)  | " \
+                "Type | TV \n:--|:--:|:--:|:--:|:--:\n".format(team)
+        table += "{0}|{1:%b. %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
 
 
-def make_results(results_data, mnttimes, wnttimes, limit):
+def make_results(mnttimes: int, wnttimes: int, limit: int) -> tuple:  # results_data: json,
     """
     Construct a reddit markup table of all recent results
-    :param results_data: JSON of results data
+    # :param results_data: JSON of results data
     :param mnttimes: How many MNT matches have been done so far
     :param wnttimes: How many WNT matches have been done so far
     :param limit: How many matches per table
-    :return:
+    :return: tuple of MNT results Markdown table and WNT results Markdown table
     """
     mnt_results, wnt_results = '', ''
-    for match in results_data['results']:
+    '''
+    for __ in results_data['result']:
+        for __ in results_data['data']:
+                for match in results_data['group']:
+                '''
+    for match in ussoccerapi.results():
+        '''
         date = match['date']
         result = match['result']
         opponent = match['opponent/_text']
+        '''
+        # (date, opponent, result)
+        date = match[0]
+        opponent = match[1]
+        result = match[2]
         if 'present' in opponent.lower():
             opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
 
         if 'MNT' in opponent and 'U-' not in opponent and mnttimes < limit:
             opponent = re.sub(r'.*MNT vs *', '', opponent)
-            mnt_results = construct_results_table('MNT', mnt_results, date, opponent, result)
+            mnt_results = construct_results_table("MEN'S NATIONAL TEAM", mnt_results, date, opponent, result)
             mnttimes += 1
 
         if 'WNT' in opponent and 'U-' not in opponent and wnttimes < limit:
             opponent = re.sub(r'.*WNT vs *', '', opponent)
-            wnt_results = construct_results_table('WNT', wnt_results, date, opponent, result)
+            wnt_results = construct_results_table("W", wnt_results, date, opponent, result)
             wnttimes += 1
 
         if mnttimes >= limit and wnttimes >= limit:
@@ -372,7 +459,7 @@ def make_results(results_data, mnttimes, wnttimes, limit):
     return mnt_results, wnt_results
 
 
-def construct_results_table(team, table, date, opponent, result):
+def construct_results_table(team: str, table: str, date: str, opponent: str, result: str) -> str:
     """
     Construct a reddit markup table
     :param team: US team
@@ -383,67 +470,62 @@ def construct_results_table(team, table, date, opponent, result):
     :return: Edited table
     """
     opponent = opponent.replace('the ', '')
-    if 'L' in result:
-        result = '[{}](#bar-3-red)'.format(result)
-    if 'W' in result:
-        result = '[{}](#bar-3-green)'.format(result)
-    if 'D' in result:
-        result = '[{}](#bar-3-yellow)'.format(result)
 
-    date, __ = fix_date(date, datetime.datetime.now())
+    date = fix_date(date, dontcare=True)
 
     if table:
-        table += "|[{}](#s)|[{}](#s)|[{}](#s)|\n".format(opponent, date, result)
+        table += "{0}|{1:%b. %d}|{2}\n".format(opponent, date, result)
         return table
-    elif 'MNT' in team:
-        table = '\n\n## **RESULTS**\n\n\n#MNT\n| Team   | Date  | Result  |' \
-                '\n|:-----------|:------------:|:------------:|\n'
-        table += "|[{}](#s)|[{}](#s)|[{}](#s)|\n".format(opponent, date, result)
+    elif 'MEN' in team:
+        table = '\n####RESULTS\n\n\n#####MEN\'S NATIONAL TEAM\n Team   | Date  | Result  ' \
+                '\n:--|:--:|:--:\n'
+        table += "{0}|{1:%b. %d}|{2}\n".format(opponent, date, result)
         return table
     else:
-        table = '#WNT\n| Team   | Date  | Result  |' \
-                '\n|:-----------|:------------:|:------------:|\n'
-        table += "|[{}](#s)|[{}](#s)|[{}](#s)|\n".format(opponent, date, result)
+        table = '#####WOMEN\'S NATIONAL TEAM\n Team   | Date  | Result  ' \
+                '\n:--|:--:|:--:\n'
+        table += "{0}|{1:%b. %d}|{2}\n".format(opponent, date, result)
         return table
 
 
-def create_text(list_tables, now):
+def create_text(list_tables: str, now: datetime.datetime.now()) -> str:
     """
     Concatenate all tables together
     :param list_tables: List of tables to be joined
     :param now: datetime.datetime.now()
     :return: String to print to reddit
     """
-    line = '\n\n---\n\n'.join(table for table in list_tables if table)
-    line += '\n\n[^Last ^updated: ^{0:%m/%d}](#s)\n\n'.format(now)
+    line = '\n****\n'.join(table for table in list_tables if table)
+    if '****\n****' in line:
+        line.replace('****\n****', '')
+    line += '\nLast updated: {0:%m/%d}\n\n'.format(now)
     return line
 
 
-def update_sidebar(sub, text, reddit):
+def update_sidebar(sub: str, text: str, reddit: praw, debug: bool=False) -> bool:
     """
     Updates subreddit sidebar
     :param sub: the subreddit to update
     :param text: the text to update the sidebar with
     :param reddit: a PRAW object (note this requires the proper scope to update sidebar settings
+    :param debug: bool to print out totalupdate
     :return: void
     """
     settings = reddit.get_settings(sub)
     sidebar_contents = settings['description']
     text = '[](#start)\n{}'.format(text)
-    totalupdate = '{}\n\n{}\n\n{}'.format(sidebar_contents[:sidebar_contents.index('[](#start)')],
-                                          text, sidebar_contents[sidebar_contents.index('[](#end)'):])
-
-    reddit.update_settings(reddit.get_subreddit(sub), description=totalupdate)
-    results = reddit.get_settings(sub)
-    sc = results['description']
-    if '{0:%m/%d}'.format(datetime.datetime.now()) in sc:
-        return True
-    else:
+    totalupdate = '{}{}{}'.format(sidebar_contents[:sidebar_contents.index('[](#start)')],
+                                  text, sidebar_contents[sidebar_contents.index('[](#end)'):])
+    if debug:
+        print(totalupdate)
         return False
+    else:
+        reddit.update_settings(reddit.get_subreddit(sub), description=totalupdate)
+        return True
 
 
-def new_main(key, refresh_token, access, new_key, new_refresh_token,
-             new_access, sendmessage=True, debug=False):
+def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refresh_token: str,
+             new_access: str, sendmessage: bool=True, debug: bool=False) -> None:
     """
     Runs the program
     :param key: PRAW key
@@ -471,7 +553,6 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
                        oauth_client_secret=key,
                        oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback'
                        )
-    redd.config.log_requests = 0
     access_information = {'access_token': access,
                           'refresh_token': refresh_token,
                           'scope': {'account creddits edit flair history '
@@ -485,41 +566,18 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
     access1 = redd.refresh_access_information(access_information['refresh_token'])
     redd.set_access_credentials(**access1)
 
-    importio_link1 = 'https://api.import.io/store/connector/f425f5bf' \
-                     '-8b78-45f5-9b6a-4168194e9080/_query?' \
-                     'input=webpage/url:http%3A%2F%2F' \
-                     'www.ussoccer.com%2Fschedule-tickets&&_apikey=' \
-                     '858c84718f394836ae3069d78bd0c657ba94049c' \
-                     'e35a11c11f59fda3e8f888bf3583ee138c5546105' \
-                     '40819b872d599d449f9d1fe61cf955ef192f88cc228' \
-                     'f390eb956dc0e9ed8a8cb528c2c5e33a0a22'
-
-    importio_link2 = 'https://api.import.io/store/connector/30a913e7-d99f' \
-                     '-4773-a338-f3b08541ce3d' \
-                     '/_query?input=webpage/url:http%3A%2F%2F' \
-                     'www.ussoccer.com%2Fresults-statistics&' \
-                     '&_apikey=858c84718f394836ae3069d78bd0c657ba94049' \
-                     'ce35a11c11f59fda3e8f888bf3583ee138' \
-                     'c554610540819b872d599d449f9d1fe61cf955ef192f88cc228f' \
-                     '390eb956dc0e9ed8a8cb528c2c5e33a0a22'
-    schedule_data = get_importio(importio_link1)
-    results_data = get_importio(importio_link2)
-
     try:
         mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table,\
         u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today = \
-            make_schedule(schedule_data, current_year, mnt_times, wnt_times, limit, now)
-        mnt, wnt = make_results(results_data, mnttimes, wnttimes, limit)
+            make_schedule(current_year, mnt_times, wnt_times, limit)  # schedule_data as the first argument
+
+        mnt, wnt = make_results(mnttimes, wnttimes, limit)  # results_data as the first argument
 
         all_tables = [mnt_table, wnt_table, u23mnt_table,
                       u23wnt_table, u20mnt_table, u20wnt_table, mnt, wnt]
         alltext = create_text(all_tables, now)
 
-        updatedsidebar = False
-        if not debug:
-            updatedsidebar = update_sidebar("ussoccer", alltext, redd)
-        else:
-            print("{}".format(alltext))
+        updatedsidebar = update_sidebar("ussoccer", alltext, redd, debug)
 
         red = praw.Reddit(user_agent="/u/RedRavens Sending match info V2",
                           oauth_client_id='1bWlWUr4c1UADA',
@@ -539,7 +597,7 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
             wnt_match = 'Unable to determine WNT next match'
 
         if sendmessage:
-            # TODO: Fix RPI, uncomment these
+            # Fix RPI, uncomment these
             red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
             red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
             if mnt_match_today:
@@ -553,12 +611,38 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
             logging.warning("INFO: Updated sidebar and sent next matches")
         elif not updatedsidebar and not debug:
             logging.error("WARNING: Didn't update sidebar")
-        elif 'Unable' in mnt_match:
+
+        if debug:
+            print('Mnt_match: ', mnt_match, '. Wnt_match: ', wnt_match)
+
+        if 'Unable' in mnt_match:
             logging.error("WARNING: Unable to determine MNT next match")
-        elif 'Unable' in wnt_match:
+        if 'Unable' in wnt_match:
             logging.error("WARNING: Unable to determine WNT next match")
 
         red.clear_authentication()
+
+    except KeyError:
+        print('Encountered KeyError')
+        print("ERROR: Couldn't update sidebar because of {}\n\n{}".format('KeyError', traceback.format_exc()))
+        sleep(10)
+        try:
+            startbot()
+        except KeyError:
+            print('Encountered KeyError x 2')
+            sleep(10)
+            try:
+                startbot()
+            except KeyError as excep:
+                if not debug:
+                    redd.send_message('RedRavens', 'Unable to update sidebar',
+                                      'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
+                                      'because of {1:}; {2:}'.format(now, excep, traceback.format_exc())
+                                      )
+                    logging.exception("ERROR: Couldn't update sidebar because of %s; %s", excep,
+                                      traceback.format_exc())
+                else:
+                    print("ERROR: Couldn't update sidebar because of {}\n\n{}".format(excep, traceback.format_exc()))
 
     except Exception as excep:
         if not debug:
@@ -587,8 +671,8 @@ def new_main(key, refresh_token, access, new_key, new_refresh_token,
         logging.warning("-" * 30)
 
 
-def startbot():
-    if 's/A' in os.getcwd():
+def startbot() -> None:
+    if sys.platform == 'darwin':
         with open('.matchthreader.txt') as filep:
             key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
         with open('.redravens.txt') as filep:
@@ -598,6 +682,15 @@ def startbot():
                  new_refresh_token_outer,
                  new_access_outer, sendmessage=False, debug=True)
 
+    elif sys.platform == 'linux' and 'pi' in os.getcwd():
+        with open('.matchthreader.txt') as filep:
+            key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
+        with open('.redravens.txt') as filep:
+            new_key_outer, new_refresh_token_outer, new_access_outer = filep.read().split('\n')
+
+        new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
+                 new_refresh_token_outer,
+                 new_access_outer, sendmessage=True, debug=False)
     else:
         with open('/home/redravens/updater/matchthreader.txt') as filep:
             key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
@@ -610,17 +703,5 @@ def startbot():
 
 
 if __name__ == '__main__':
-    try:
-        startbot()
-    except KeyError:
-        print('Encountered KeyError')
-        sleep(10)
-        try:
-            startbot()
-        except KeyError:
-            print('Encountered KeyError x 2')
-            sleep(10)
-            try:
-                startbot()
-            except KeyError:
-                print('Encountered KeyError x 3, quitting')
+    startbot()
+    soccer()
