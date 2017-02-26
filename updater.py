@@ -295,7 +295,6 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
     for match in ussoccerapi.schedule():
         # (date, time, opponent, venue, watch)
         # (  0,    1,     2    ,   3  ,   4  )
-        print(match)
         date = match[0]
         # date = match['date']
         try:
