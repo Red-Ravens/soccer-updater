@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     26 FEB 2017   #
+#    LAST UPDATED     20 MAY 2017   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -103,6 +103,7 @@ def soccer():
         r.clear_authentication()
 
 
+# noinspection PyUnresolvedReferences
 def push(text: str, details: str, r: praw) -> None:
     """
     Push a message to computer
@@ -116,9 +117,14 @@ def push(text: str, details: str, r: praw) -> None:
         with open('token.txt') as files:
             token = files.read().strip()
         pb = Pushbullet(token)
-        lst = text.split('?')
-        pb.push_note('{} match today at {} on {}'.format(details, lst[4], lst[3]),
-                     '', device=pb.get_device('Computer'))
+        try:
+            lst = text.split('?')
+            pb.push_note('{} match today at {} on {}'.format(details, lst[4], lst[3]),
+                         '', device=pb.get_device('Computer'))
+        except IndexError:
+            pb.push_note('{}{}'.format(text, details),
+                         '', device=pb.get_device('Computer'))
+
     except ImportError:
         lst = text.split('?')
         r.send_message('RedRavens', '{} Match Today'.format(details),
@@ -221,7 +227,7 @@ def fix_time(time: str) -> str:
     return time
 
 
-def fix_date(input_: str, dontcare: bool=False) -> tuple:
+def fix_date(input_: str, dontcare: bool = False):
     """
     Amend the default date format
     :param input_: String of a full date
@@ -251,8 +257,9 @@ def fix_watch(watch: str) -> str:
             pass
 
     watches = {'fox sports 1': 'FS1 ', 'FS1': 'FS1 ', 'fox sports 2': 'FS2 ',
-               'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ', 'fox soccer plus':
-               'FSocP ', 'bein': 'beIN', 'ussoccer.com': 'ussoccer', '': '?', ' ': '?'}
+               'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ',
+               'fox soccer plus': 'FSocP ', 'bein sports': 'beIN ',
+               'ussoccer.com': 'ussoccer', '': '?', ' ': '?'}
 
     watch = watches[watch.lower()] if watch.lower() in watches.keys() else watch
 
@@ -287,8 +294,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
     :return: mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table,
             u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today
     """
-    mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, \
-    u20wnt_table = ('', '', '', '', '', '')
+    mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table = ('', '', '', '', '', '')
     mnt_match, wnt_match = '', ''
     mnt_sendmatch, wnt_sendmatch, mnt_match_today, wnt_match_today = True, True, False, False
 
@@ -309,6 +315,8 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
             if 'the ' in opponent:
                 opponent = opponent.replace('the ', '')
+            if ' - 2017 Tournament of Nations' in opponent:
+                opponent = opponent.replace(' - 2017 Tournament of Nations', '')
         except KeyError:
             opponent = 'TBD'
         # time = match['time']
@@ -318,6 +326,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
             watch = match[4].strip().replace('TICKETS', '')
             watch = re.sub(r'^Ticket Info *', '', watch)
             watch = re.sub(r'^| Buy Tickets *', '', watch)
+            watch = re.sub(r'^| Buy Now *', '', watch)
         except KeyError:
             watch = ' '
 
@@ -328,8 +337,8 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
         matchtype = fix_matchtype(opponent)
 
         if date >= datetime.datetime.today().date():
-            if 'MNT' in opponent and 'U-' not in opponent and current_year == year and \
-                    mnt_times < limit and mnt_sendmatch:
+            if 'MNT' in opponent and 'U-' not in opponent and current_year == year and mnt_times < limit and \
+                    mnt_sendmatch:
                 opponent = re.sub(r'.*MNT vs *', '', opponent)
                 mnt_sendmatch = False
                 mnt_table = construct_schedule_table("MEN'S NATIONAL TEAM", mnt_table, opponent,
@@ -339,15 +348,14 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 if date == datetime.datetime.today().date():
                     mnt_match_today = True
 
-            elif 'MNT' in opponent and 'U-' not in opponent and \
-                            current_year == year and mnt_times < limit:
+            elif 'MNT' in opponent and 'U-' not in opponent and current_year == year and mnt_times < limit:
                 opponent = re.sub(r'.*MNT vs *', '', opponent)
                 mnt_table = construct_schedule_table("MEN'S NATIONAL TEAM", mnt_table, opponent,
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
 
-            elif 'WNT' in opponent and 'U-' not in opponent and \
-                     current_year == year and wnt_times < limit and wnt_sendmatch:
+            elif 'WNT' in opponent and 'U-' not in opponent and current_year == year and wnt_times < limit and \
+                    wnt_sendmatch:
                 opponent = re.sub(r'.*WNT vs *', '', opponent)
                 wnt_sendmatch = False
                 wnt_table = construct_schedule_table("WOMEN'S NATIONAL TEAM", wnt_table, opponent,
@@ -357,8 +365,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 if date == datetime.datetime.today().date():
                     wnt_match_today = True
 
-            elif 'WNT' in opponent and 'U-' not in opponent and \
-                            current_year == year and wnt_times < limit:
+            elif 'WNT' in opponent and 'U-' not in opponent and current_year == year and wnt_times < limit:
                 opponent = re.sub(r'.*WNT vs *', '', opponent)
                 wnt_table = construct_schedule_table("WOMEN'S NATIONAL TEAM", wnt_table, opponent,
                                                      venue, date, watch, time, matchtype)
@@ -384,8 +391,8 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 u20wnt_table = construct_schedule_table("U-20 WOMEN'S NATIONAL TEAM", u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match,\
-           wnt_match, mnt_match_today, wnt_match_today
+    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, \
+        wnt_match, mnt_match_today, wnt_match_today
 
 
 def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: str,
@@ -487,7 +494,7 @@ def construct_results_table(team: str, table: str, date: str, opponent: str, res
         return table
 
 
-def create_text(list_tables: str, now: datetime.datetime.now()) -> str:
+def create_text(list_tables: list, now: datetime.datetime.now()) -> str:
     """
     Concatenate all tables together
     :param list_tables: List of tables to be joined
@@ -501,7 +508,7 @@ def create_text(list_tables: str, now: datetime.datetime.now()) -> str:
     return line
 
 
-def update_sidebar(sub: str, text: str, reddit: praw, debug: bool=False) -> bool:
+def update_sidebar(sub: str, text: str, reddit: praw, debug: bool = False) -> bool:
     """
     Updates subreddit sidebar
     :param sub: the subreddit to update
@@ -524,7 +531,7 @@ def update_sidebar(sub: str, text: str, reddit: praw, debug: bool=False) -> bool
 
 
 def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refresh_token: str,
-             new_access: str, sendmessage: bool=True, debug: bool=False) -> None:
+             new_access: str, sendmessage: bool = True, debug: bool = False) -> None:
     """
     Runs the program
     :param key: PRAW key
@@ -566,9 +573,9 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
     redd.set_access_credentials(**access1)
 
     try:
-        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table,\
-        u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today = \
-            make_schedule(current_year, mnt_times, wnt_times, limit)  # schedule_data as the first argument
+        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, \
+                u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today = \
+                make_schedule(current_year, mnt_times, wnt_times, limit)  # schedule_data as the first argument
 
         mnt, wnt = make_results(mnttimes, wnttimes, limit)  # results_data as the first argument
 
@@ -619,6 +626,9 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
         if 'Unable' in wnt_match:
             logging.error("WARNING: Unable to determine WNT next match")
 
+        day = datetime.datetime.now().day
+        if day % 18 == 0 or day % 28 == 0:
+            push('Monthly test', ' ', redd)
         red.clear_authentication()
 
     except KeyError:

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3.5
+#####################################
+#    LAST UPDATED     26 FEB 2017   #
+#####################################
 """
 Scrapes ussoccer.com for Schedule and Results
-
-Last Updated: 26 FEBRUARY 2017
 """
 import requests
 from bs4 import BeautifulSoup
