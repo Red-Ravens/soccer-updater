@@ -6,7 +6,7 @@ This script runs daily and does three things:
 
 2. Compiles it into reddit- and /r/ussoccer-friendly text
 
-3. Runs daily to update the sidebar with match info via [pythonanywhere.com](https://wwpythonanywhere.com)
+3. Runs daily to update the sidebar with match info via ~~[pythonanywhere.com](https://wwpythonanywhere.com)~~ a Raspberry Pi
 
 
 The `updater.py` file uses python3.5 and the `SoccerUpdaterImportio.py` file uses python2.7  
