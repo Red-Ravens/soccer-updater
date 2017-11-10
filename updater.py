@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     20 MAY 2017   #
+#    LAST UPDATED     10 NOV 2017   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -17,6 +17,8 @@ import datetime
 import requests
 import praw
 import ussoccerapi
+import dailytodos
+import praw_oauth2
 
 
 def get_importio(link: str) -> json:
@@ -35,72 +37,38 @@ def soccer():
     :return: None
     """
     if sys.platform == 'linux' and 'pi' in os.getcwd():
-        with open('/media/pi/USB20FD/Updater/.ussoccer.txt') as filep:
-            key, refresh, access = filep.read().split('\n')
-        user_agent = "/r/ussoccer RPI server v2.6 by RedRavens"
-        r = praw.Reddit(user_agent, oauth_client_id='_3vsO2wedhIMtw',
-                        oauth_client_secret=key,
-                        oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback')
+        r = praw_oauth2.ussoccer_bot()
 
-        access_information = {'access_token': access,
-                              'refresh_token': refresh,
-                              'scope': {'account creddits edit flair history identity livemanage modconfig '
-                                        'modcontributors modflair modlog modothers modposts modself modwiki '
-                                        'mysubreddits privatemessages read '
-                                        'report save submit subscribe vote wikiedit wikiread'}
-                              }
-        access = r.refresh_access_information(access_information['refresh_token'])
-        r.set_access_credentials(**access)
-
-        for msg in r.get_unread(update_user=True, limit=None):
+        for msg in r.inbox.unread(limit=None):
             if 'MNT next match' in msg.subject:
-                msg.mark_as_read()
+                msg.mark_read()
                 path = '/media/pi/USB20FD/MatchThreader/MNT.txt'
                 with open(path, 'w') as filep:
                     filep.write(msg.body)
-                print('Wrote MNT next match')
+                logging.warning('INFO: Wrote MNT next match')
             elif 'WNT next match' in msg.subject:
-                msg.mark_as_read()
+                msg.mark_read()
                 path1 = '/media/pi/USB20FD/MatchThreader/WNT.txt'
                 with open(path1, 'w') as filep:
                     filep.write(msg.body)
-                print('Wrote WNT next match')
-
-        r.clear_authentication()
+                logging.warning('INFO: Wrote WNT next match')
 
     elif sys.platform == 'darwin':
-        with open('/Users/Alex/Documents/Python3/Updater/.ussoccer.txt') as filep:
-            key, refresh, access = filep.read().split('\n')
-        user_agent = "/r/ussoccer RPI server v2.6 by RedRavens"
-        r = praw.Reddit(user_agent, oauth_client_id='_3vsO2wedhIMtw',
-                        oauth_client_secret=key,
-                        oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback')
+        r = praw_oauth2.ussoccer_bot()
 
-        access_information = {'access_token': access,
-                              'refresh_token': refresh,
-                              'scope': {'account creddits edit flair history identity livemanage modconfig '
-                                        'modcontributors modflair modlog modothers modposts modself modwiki '
-                                        'mysubreddits privatemessages read '
-                                        'report save submit subscribe vote wikiedit wikiread'}
-                              }
-        access = r.refresh_access_information(access_information['refresh_token'])
-        r.set_access_credentials(**access)
-
-        for msg in r.get_unread(update_user=True, limit=None):
+        for msg in r.inbox.unread(limit=None):
             if 'MNT next match' in msg.subject:
-                msg.mark_as_read()
+                msg.mark_read()
                 path = '/Users/Alex/Documents/Python/MatchThreader/MNT.txt'
                 with open(path, 'w') as filep:
                     filep.write(msg.body)
                 print('Wrote MNT next match')
             elif 'WNT next match' in msg.subject:
-                msg.mark_as_read()
+                msg.mark_read()
                 path1 = '/Users/Alex/Documents/Python/MatchThreader/WNT.txt'
                 with open(path1, 'w') as filep:
                     filep.write(msg.body)
                 print('Wrote WNT next match')
-
-        r.clear_authentication()
 
 
 # noinspection PyUnresolvedReferences
@@ -120,15 +88,30 @@ def push(text: str, details: str, r: praw) -> None:
         try:
             lst = text.split('?')
             pb.push_note('{} match today at {} on {}'.format(details, lst[4], lst[3]),
-                         '', device=pb.get_device('Computer'))
+                         '', device=pb.get_device('iPhone'))
         except IndexError:
             pb.push_note('{}{}'.format(text, details),
-                         '', device=pb.get_device('Computer'))
+                         '', device=pb.get_device('iPhone'))
 
     except ImportError:
         lst = text.split('?')
         r.send_message('RedRavens', '{} Match Today'.format(details),
                        '{} match today at {} on {}'.format(details, lst[4], lst[3]))
+
+
+def fix_opponent(oppon: str) -> str:
+    """
+    Fixes opponent string information
+    :param oppon: String of an opponent
+    :return: Fixed str
+    """
+    if 'present' in oppon.lower():
+        oppon = oppon[:oppon.index('Present')].strip().strip(',').strip('-')
+    if 'the ' in oppon:
+        oppon = oppon.replace('the ', '')
+    if ' - 2017 Tournament of Nations' in oppon:
+        oppon = oppon.replace(' - 2017 Tournament of Nations', '')
+    return oppon
 
 
 def fix_venue(venue: str) -> str:
@@ -143,9 +126,10 @@ def fix_venue(venue: str) -> str:
                  'Costa Rica', 'Honduras', 'Mexico', 'Switzerland',
                  'Cyprus', 'New Zealand', 'Germany',
                  'Serbia', 'Brazil', 'Trinidad & Tobago', 'Colombia',
-                 'Guatemala', 'Jamaica', 'Grenada',
+                 'Guatemala', 'Jamaica', 'Grenada', 'India',
                  'Croatia', 'Spain', 'Argentina', 'Puerto Rico',
-                 'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines']
+                 'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines',
+                 'Portugal']
 
     cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
               'Frisco': 'Dallas', 'Carson': 'Los Angeles',
@@ -249,7 +233,8 @@ def fix_watch(watch: str) -> str:
     """
     watch = watch.replace('|', '').strip()
     if ',' in watch:
-        watch = watch[:watch.index(',')]
+        watch = watch[:watch.index(',')].rstrip()
+
     else:
         try:
             watch = watch[:watch.index(' ')]
@@ -259,6 +244,7 @@ def fix_watch(watch: str) -> str:
     watches = {'fox sports 1': 'FS1 ', 'FS1': 'FS1 ', 'fox sports 2': 'FS2 ',
                'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ',
                'fox soccer plus': 'FSocP ', 'bein sports': 'beIN ',
+               'espn networks': 'ESPN ', 'bein': 'beIN',
                'ussoccer.com': 'ussoccer', '': '?', ' ': '?'}
 
     watch = watches[watch.lower()] if watch.lower() in watches.keys() else watch
@@ -273,11 +259,14 @@ def fix_matchtype(opponent: str) -> str:
     :return: String of matchtype
     """
     matchtype = 'F'
-    sbc = ['Germany', 'England', 'France']
-    countries = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
-    if any(country in opponent for country in countries) and 'U-' not in opponent:
+    wnt_teams = ['Brazil', 'Japan', 'Australia']
+    wcq = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
+    gold_cup = ['Panama', 'Martinique', 'Nicaragua', 'El Salvador']
+    if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
+        matchtype = 'GC'
+    if any(country in opponent for country in wcq) and 'U-' not in opponent:
         matchtype = 'WCQ'
-    if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in sbc):
+    if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in wnt_teams):
         matchtype = 'T'
     return matchtype
 
@@ -302,31 +291,22 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
         # (date, time, opponent, venue, watch)
         # (  0,    1,     2    ,   3  ,   4  )
         date = match[0]
-        # date = match['date']
         try:
             venue = match[3]
-            # venue = match[3]
         except KeyError:
             venue = 'TBD'
         try:
-            # opponent = match['opponent/_text']
-            opponent = match[2]
-            if 'present' in opponent.lower():
-                opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
-            if 'the ' in opponent:
-                opponent = opponent.replace('the ', '')
-            if ' - 2017 Tournament of Nations' in opponent:
-                opponent = opponent.replace(' - 2017 Tournament of Nations', '')
+            temp_opponent = match[2]
+            opponent = fix_opponent(temp_opponent)
         except KeyError:
             opponent = 'TBD'
-        # time = match['time']
         time = match[1]
         try:
-            # watch = match['watch'].strip().replace('TICKETS', '')
             watch = match[4].strip().replace('TICKETS', '')
             watch = re.sub(r'^Ticket Info *', '', watch)
-            watch = re.sub(r'^| Buy Tickets *', '', watch)
-            watch = re.sub(r'^| Buy Now *', '', watch)
+            watch = re.sub(r'^| Buy Tickets*', '', watch)
+            watch = re.sub(r'^| Buy Now*', '', watch)
+            watch = watch.replace('Buy Tickets', '')
         except KeyError:
             watch = ' '
 
@@ -395,7 +375,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
         wnt_match, mnt_match_today, wnt_match_today
 
 
-def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: str,
+def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: datetime,
                              watch: str, time: str, matchtype: str) -> str:
     """
     Construct a reddit markup table
@@ -431,20 +411,12 @@ def make_results(mnttimes: int, wnttimes: int, limit: int) -> tuple:  # results_
     :return: tuple of MNT results Markdown table and WNT results Markdown table
     """
     mnt_results, wnt_results = '', ''
-    '''
-    for __ in results_data['result']:
-        for __ in results_data['data']:
-                for match in results_data['group']:
-                '''
+
     for match in ussoccerapi.results():
-        '''
-        date = match['date']
-        result = match['result']
-        opponent = match['opponent/_text']
-        '''
         # (date, opponent, result)
         date = match[0]
-        opponent = match[1]
+        temp_opponent = match[1]
+        opponent = fix_opponent(temp_opponent)
         result = match[2]
         if 'present' in opponent.lower():
             opponent = opponent[:opponent.index('Present')].strip().strip(',').strip('-')
@@ -517,7 +489,7 @@ def update_sidebar(sub: str, text: str, reddit: praw, debug: bool = False) -> bo
     :param debug: bool to print out totalupdate
     :return: void
     """
-    settings = reddit.get_settings(sub)
+    settings = reddit.subreddit(sub).mod.settings()
     sidebar_contents = settings['description']
     text = '[](#start)\n{}'.format(text)
     totalupdate = '{}{}{}'.format(sidebar_contents[:sidebar_contents.index('[](#start)')],
@@ -526,20 +498,13 @@ def update_sidebar(sub: str, text: str, reddit: praw, debug: bool = False) -> bo
         print(totalupdate)
         return False
     else:
-        reddit.update_settings(reddit.get_subreddit(sub), description=totalupdate)
+        reddit.subreddit(sub).mod.update(description=totalupdate)
         return True
 
 
-def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refresh_token: str,
-             new_access: str, sendmessage: bool = True, debug: bool = False) -> None:
+def new_main(sendmessage: bool = True, debug: bool = False) -> None:
     """
     Runs the program
-    :param key: PRAW key
-    :param refresh_token: PRAW refresh token
-    :param access: PRAW access key
-    :param new_key: PRAW key
-    :param new_refresh_token: PRAW refresh token
-    :param new_access: PRAW access key
     :param sendmessage: Send message T/F
     :param debug: Debug T/F
     :return: Void
@@ -554,30 +519,15 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
                         filename='log.log', level=logging.WARNING)
     logging.disable(logging.INFO)
 
-    user_agent = "/r/ussoccer sidebar match updater v2.5 by /u/RedRavens /u/matchThreader"
-    redd = praw.Reddit(user_agent, oauth_client_id='3t3dsPvTZPXpQA',
-                       oauth_client_secret=key,
-                       oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback'
-                       )
-    access_information = {'access_token': access,
-                          'refresh_token': refresh_token,
-                          'scope': {'account creddits edit flair history '
-                                    'identity livemanage modconfig '
-                                    'modcontributors modflair modlog modothers '
-                                    'modposts modself modwiki '
-                                    'mysubreddits privatemessages read '
-                                    'report save submit subscribe '
-                                    'vote wikiedit wikiread'}
-                          }
-    access1 = redd.refresh_access_information(access_information['refresh_token'])
-    redd.set_access_credentials(**access1)
+    user_agent = "/r/ussoccer sidebar match updater v2.6 by /u/RedRavens /u/ussoccer_b0t"
+    redd = praw_oauth2.ussoccer_bot(user_agent)
 
     try:
         mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, \
                 u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today = \
-                make_schedule(current_year, mnt_times, wnt_times, limit)  # schedule_data as the first argument
+                make_schedule(current_year, mnt_times, wnt_times, limit)
 
-        mnt, wnt = make_results(mnttimes, wnttimes, limit)  # results_data as the first argument
+        mnt, wnt = make_results(mnttimes, wnttimes, limit)
 
         all_tables = [mnt_table, wnt_table, u23mnt_table,
                       u23wnt_table, u20mnt_table, u20wnt_table, mnt, wnt]
@@ -585,17 +535,7 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
 
         updatedsidebar = update_sidebar("ussoccer", alltext, redd, debug)
 
-        red = praw.Reddit(user_agent="/u/RedRavens Sending match info V2",
-                          oauth_client_id='1bWlWUr4c1UADA',
-                          oauth_client_secret=new_key,
-                          oauth_redirect_uri='http://127.0.0.1:65010/authorize_callback')
-        red.config.log_requests = 0
-        access_information = {'access_token': new_access,
-                              'refresh_token': new_refresh_token,
-                              'scope': {'privatemessages'}
-                              }
-        access1 = red.refresh_access_information(access_information['refresh_token'])
-        red.set_access_credentials(**access1)
+        red = praw_oauth2.redravens("/u/RedRavens Sending match info V2")
 
         if not mnt_match:
             mnt_match = 'Unable to determine MNT next match'
@@ -603,15 +543,12 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
             wnt_match = 'Unable to determine WNT next match'
 
         if sendmessage:
-            # Fix RPI, uncomment these
-            red.send_message('ussoccer_bot', 'MNT next match', mnt_match)
-            red.send_message('ussoccer_bot', 'WNT next match', wnt_match)
+            red.redditor('ussoccer_bot').message('MNT next match', mnt_match)
+            red.redditor('ussoccer_bot').message('WNT next match', wnt_match)
             if mnt_match_today:
                 push(mnt_match, 'MNT', redd)
-                # red.send_message('ussoccer_bot', "MNT match today", mnt_match)
             if wnt_match_today:
                 push(wnt_match, 'WNT', redd)
-                # red.send_message('ussoccer_bot', "WNT match today", wnt_match)
 
         if updatedsidebar and '?' in mnt_match and '?' in wnt_match:
             logging.warning("INFO: Updated sidebar and sent next matches")
@@ -619,17 +556,12 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
             logging.error("WARNING: Didn't update sidebar")
 
         if debug:
-            print('Mnt_match: ', mnt_match, '. Wnt_match: ', wnt_match)
+            print('Mnt_match: ', mnt_match, 'Wnt_match: ', wnt_match)
 
         if 'Unable' in mnt_match:
             logging.error("WARNING: Unable to determine MNT next match")
         if 'Unable' in wnt_match:
             logging.error("WARNING: Unable to determine WNT next match")
-
-        day = datetime.datetime.now().day
-        if day % 18 == 0 or day % 28 == 0:
-            push('Monthly test', ' ', redd)
-        red.clear_authentication()
 
     except KeyError:
         print('Encountered KeyError')
@@ -644,9 +576,10 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
                 startbot()
             except KeyError as excep:
                 if not debug:
-                    redd.send_message('RedRavens', 'Unable to update sidebar',
-                                      'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
-                                      'because of {1:}; {2:}'.format(now, excep, traceback.format_exc())
+                    redd.redditor('RedRavens').message('Unable to update sidebar',
+                                                       'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
+                                                        'because of {1:}; {2:}'.format(now,
+                                                                                       excep, traceback.format_exc())
                                       )
                     logging.exception("ERROR: Couldn't update sidebar because of %s; %s", excep,
                                       traceback.format_exc())
@@ -655,60 +588,35 @@ def new_main(key: str, refresh_token: str, access: str, new_key: str, new_refres
 
     except Exception as excep:
         if not debug:
-            redd.send_message('RedRavens', 'Unable to update sidebar',
-                              'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
-                              'because of {1:}; {2:}'.format(now, excep, traceback.format_exc())
-                              )
+            redd.redditor('RedRavens').message('Unable to update sidebar',
+                                               'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
+                                               'because of {1:}; {2:}'.format(now, excep, traceback.format_exc())
+                                               )
             logging.exception("ERROR: Couldn't update sidebar because of %s; %s", excep,
                               traceback.format_exc())
         else:
             print("ERROR: Couldn't update sidebar because of {}\n\n{}".format(excep, traceback.format_exc()))
 
-    finally:
-        if not debug:
-            questions = 0
-            for msg in redd.get_unread(unset_has_mail=True, update_user=True, limit=None):
-                if 'match thread' in msg.subject.lower() and 'r3d' not in msg.subject.lower():
-                    msg.mark_as_read()
-                    questions += 1
-                    mess = "This bot is for /r/ussoccer only. " \
-                           "Please send your request to /u/MatchThreadder (two d's) instead."
-                    msg.reply(mess)
-
-            logging.warning('INFO: Wrong bot calls: %i', questions)
-        redd.clear_authentication()
-        logging.warning("-" * 30)
-
 
 def startbot() -> None:
     if sys.platform == 'darwin':
-        with open('.matchthreader.txt') as filep:
-            key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
-        with open('.redravens.txt') as filep:
-            new_key_outer, new_refresh_token_outer, new_access_outer = filep.read().split('\n')
+        force = True
 
-        new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
-                 new_refresh_token_outer,
-                 new_access_outer, sendmessage=False, debug=True)
+        if force:
+            send_message = True
+            deb = False
+        else:
+            send_message = False
+            deb = True
+        new_main(sendmessage=send_message, debug=deb)
+        dailytodos.main()
 
     elif sys.platform == 'linux' and 'pi' in os.getcwd():
-        with open('.matchthreader.txt') as filep:
-            key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
-        with open('.redravens.txt') as filep:
-            new_key_outer, new_refresh_token_outer, new_access_outer = filep.read().split('\n')
+        new_main(sendmessage=True, debug=False)
+        dailytodos.main()
 
-        new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
-                 new_refresh_token_outer,
-                 new_access_outer, sendmessage=True, debug=False)
     else:
-        with open('/home/redravens/updater/matchthreader.txt') as filep:
-            key_outer, refresh_token_outer, access_outer = filep.read().split('\n')
-        with open('/home/redravens/updater/redravens.txt') as filep:
-            new_key_outer, new_refresh_token_outer, new_access_outer = filep.read().split('\n')
-
-        new_main(key_outer, refresh_token_outer, access_outer, new_key_outer,
-                 new_refresh_token_outer,
-                 new_access_outer, sendmessage=True, debug=False)
+        new_main(sendmessage=True, debug=False)
 
 
 if __name__ == '__main__':
