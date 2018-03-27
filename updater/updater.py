@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     06 JAN 2018   #
+#    LAST UPDATED     27 MAR 2018   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
