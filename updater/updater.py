@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     10 NOV 2017   #
+#    LAST UPDATED     06 JAN 2018   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -129,7 +129,7 @@ def fix_venue(venue: str) -> str:
                  'Guatemala', 'Jamaica', 'Grenada', 'India',
                  'Croatia', 'Spain', 'Argentina', 'Puerto Rico',
                  'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines',
-                 'Portugal']
+                 'Portugal', 'Ireland']
 
     cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
               'Frisco': 'Dallas', 'Carson': 'Los Angeles',
@@ -259,7 +259,7 @@ def fix_matchtype(opponent: str) -> str:
     :return: String of matchtype
     """
     matchtype = 'F'
-    wnt_teams = ['Brazil', 'Japan', 'Australia']
+    wnt_teams = ['Germany', 'France', 'England']
     wcq = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
     gold_cup = ['Panama', 'Martinique', 'Nicaragua', 'El Salvador']
     if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
