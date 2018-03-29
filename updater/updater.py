@@ -1,6 +1,6 @@
 #!/usr/bin/env python3.5
 #####################################
-#    LAST UPDATED     26 MAR 2018   #
+#    LAST UPDATED     28 MAR 2018   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -260,12 +260,12 @@ def fix_matchtype(opponent: str) -> str:
     """
     matchtype = 'F'
     wnt_teams = ['Germany', 'France', 'England']
-    wcq = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
+    # wcq = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
     gold_cup = ['Panama', 'Martinique', 'Nicaragua', 'El Salvador']
     if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
         matchtype = 'GC'
-    if any(country in opponent for country in wcq) and 'U-' not in opponent:
-        matchtype = 'WCQ'
+    # if any(country in opponent for country in wcq) and 'U-' not in opponent and 'MNT' in opponent:
+    #    matchtype = 'WCQ'
     if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in wnt_teams):
         matchtype = 'T'
     return matchtype
