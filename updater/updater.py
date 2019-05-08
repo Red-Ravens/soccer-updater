@@ -1,6 +1,6 @@
-#!/usr/bin/env python3.5
+#!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     28 MAR 2018   #
+#    LAST UPDATED     28 APR 2019   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -38,7 +38,6 @@ def soccer():
     """
     if sys.platform == 'linux' and 'pi' in os.getcwd():
         r = praw_oauth2.ussoccer_bot()
-
         for msg in r.inbox.unread(limit=None):
             if 'MNT next match' in msg.subject:
                 msg.mark_read()
@@ -52,6 +51,7 @@ def soccer():
                 with open(path1, 'w') as filep:
                     filep.write(msg.body)
                 logging.warning('INFO: Wrote WNT next match')
+
 
     elif sys.platform == 'darwin':
         r = praw_oauth2.ussoccer_bot()
@@ -105,12 +105,21 @@ def fix_opponent(oppon: str) -> str:
     :param oppon: String of an opponent
     :return: Fixed str
     """
-    if 'present' in oppon.lower():
-        oppon = oppon[:oppon.index('Present')].strip().strip(',').strip('-')
+    if ' present ' in oppon:
+        oppon = oppon[:oppon.index(' present ')]
+    if ' Present ' in oppon:
+        oppon = oppon[:oppon.index(' Present ')]
+
+    if ', present' in oppon:
+        oppon = oppon[:oppon.index(', present')]
+
+    if ', Present' in oppon:
+        oppon = oppon[:oppon.index(', Present')]
+
     if 'the ' in oppon:
         oppon = oppon.replace('the ', '')
-    if ' - 2017 Tournament of Nations' in oppon:
-        oppon = oppon.replace(' - 2017 Tournament of Nations', '')
+    if ' - ' in oppon:
+        oppon = oppon[:oppon.index(' - ')]
     return oppon
 
 
@@ -129,7 +138,7 @@ def fix_venue(venue: str) -> str:
                  'Guatemala', 'Jamaica', 'Grenada', 'India',
                  'Croatia', 'Spain', 'Argentina', 'Puerto Rico',
                  'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines',
-                 'Portugal', 'Ireland']
+                 'Portugal', 'Ireland', 'Scotland', 'Belgium', 'Poland', 'Qatar']
 
     cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
               'Frisco': 'Dallas', 'Carson': 'Los Angeles',
@@ -252,22 +261,33 @@ def fix_watch(watch: str) -> str:
     return watch
 
 
-def fix_matchtype(opponent: str) -> str:
+def fix_matchtype(opponent: str, hint: str) -> str:
     """
     Determine the match type
     :param opponent: String of team vs opponent
+    :param hint: String of un-fixed opponent which possibly gives a matchtype hint
     :return: String of matchtype
     """
     matchtype = 'F'
-    wnt_teams = ['Germany', 'France', 'England']
-    # wcq = ['Mexico', 'Costa Rica', 'Honduras', 'Panama', 'Trinidad']
-    gold_cup = ['Panama', 'Martinique', 'Nicaragua', 'El Salvador']
+    wnt_teams = ['Japan', 'Brazil', 'England']
+    '''
+    wcq = ['Thailand', 'Chile', 'Sweden']
+    wcq1 = ['Ukraine', 'Nigeria', 'Qatar']
+    '''
+    if 'World Cup' in hint:
+        matchtype = 'WC'
+    if 'Gold Cup' in hint:
+        matchtype = 'GC'
+    '''
+    gold_cup = ['Panama', 'Trinidad Tobago', 'Guyana']
     if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
         matchtype = 'GC'
-    # if any(country in opponent for country in wcq) and 'U-' not in opponent and 'MNT' in opponent:
-    #    matchtype = 'WCQ'
+    if any(country in opponent for country in wcq) and 'U-' not in opponent and 'WNT' in opponent:
+        matchtype = 'WC'
+    '''
     if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in wnt_teams):
         matchtype = 'T'
+
     return matchtype
 
 
@@ -299,7 +319,9 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
             temp_opponent = match[2]
             opponent = fix_opponent(temp_opponent)
         except KeyError:
-            opponent = 'TBD'
+            opponent = temp_opponent = 'TBD'
+        except ValueError:
+            opponent = temp_opponent = 'TBD'
         time = match[1]
         try:
             watch = match[4].strip().replace('TICKETS', '')
@@ -314,7 +336,10 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
         venue = fix_venue(venue)
         watch = fix_watch(watch)
         time = fix_time(time)
-        matchtype = fix_matchtype(opponent)
+        try:
+            matchtype = fix_matchtype(opponent, temp_opponent)
+        except NameError:
+            matchtype = fix_matchtype(opponent, 'TBD')
 
         if date >= datetime.datetime.today().date():
             if 'MNT' in opponent and 'U-' not in opponent and current_year == year and mnt_times < limit and \
@@ -325,6 +350,9 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
                 mnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
+                if sys.platform == 'linux':
+                    with open('/media/pi/USB20FD/matchthread/mnt.txt', 'w') as files:
+                        files.write(mnt_match)
                 if date == datetime.datetime.today().date():
                     mnt_match_today = True
 
@@ -342,6 +370,9 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 wnt_times += 1
                 wnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
+                if sys.platform == 'linux':
+                    with open('/media/pi/USB20FD/matchthread/wnt.txt', 'w') as files:
+                        files.write(wnt_match)
                 if date == datetime.datetime.today().date():
                     wnt_match_today = True
 
@@ -371,8 +402,8 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 u20wnt_table = construct_schedule_table("U-20 WOMEN'S NATIONAL TEAM", u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, \
-        wnt_match, mnt_match_today, wnt_match_today
+    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, wnt_match,\
+        mnt_match_today, wnt_match_today
 
 
 def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: datetime,
@@ -392,12 +423,12 @@ def construct_schedule_table(team: str, table: str, opponent: str, venue: str, d
     if '@' in venue:
         opponent = '@{}'.format(opponent)
     if table:
-        table += "{0}|{1:%b. %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
+        table += "{0}|{1:%b %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
     else:
         table = "#####{}\n Team   | Date  | Time (ET)  | " \
                 "Type | TV \n:--|:--:|:--:|:--:|:--:\n".format(team)
-        table += "{0}|{1:%b. %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
+        table += "{0}|{1:%b %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
 
 
@@ -457,12 +488,12 @@ def construct_results_table(team: str, table: str, date: str, opponent: str, res
     elif 'MEN' in team:
         table = '\n####RESULTS\n\n\n#####MEN\'S NATIONAL TEAM\n Team   | Date  | Result  ' \
                 '\n:--|:--:|:--:\n'
-        table += "{0}|{1:%b. %d}|{2}\n".format(opponent, date, result)
+        table += "{0}|{1:%b %d}|{2}\n".format(opponent, date, result)
         return table
     else:
         table = '#####WOMEN\'S NATIONAL TEAM\n Team   | Date  | Result  ' \
                 '\n:--|:--:|:--:\n'
-        table += "{0}|{1:%b. %d}|{2}\n".format(opponent, date, result)
+        table += "{0}|{1:%b %d}|{2}\n".format(opponent, date, result)
         return table
 
 
@@ -519,13 +550,12 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
                         filename='log.log', level=logging.WARNING)
     logging.disable(logging.INFO)
 
-    user_agent = "/r/ussoccer sidebar match updater v2.6 by /u/RedRavens /u/ussoccer_b0t"
+    user_agent = "/r/ussoccer sidebar match updater v2.7 by /u/RedRavens /u/ussoccer_b0t"
     redd = praw_oauth2.ussoccer_bot(user_agent)
 
     try:
-        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, \
-                u20wnt_table, mnt_match, wnt_match, mnt_match_today, wnt_match_today = \
-                make_schedule(current_year, mnt_times, wnt_times, limit)
+        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match,\
+            wnt_match, mnt_match_today, wnt_match_today = make_schedule(current_year, mnt_times, wnt_times, limit)
 
         mnt, wnt = make_results(mnttimes, wnttimes, limit)
 
@@ -535,7 +565,7 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
 
         updatedsidebar = update_sidebar("ussoccer", alltext, redd, debug)
 
-        red = praw_oauth2.redravens("/u/RedRavens Sending match info V2")
+        # red = praw_oauth2.redravens("/u/RedRavens Sending match info V2")
 
         if not mnt_match:
             mnt_match = 'Unable to determine MNT next match'
@@ -543,8 +573,8 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
             wnt_match = 'Unable to determine WNT next match'
 
         if sendmessage:
-            red.redditor('ussoccer_bot').message('MNT next match', mnt_match)
-            red.redditor('ussoccer_bot').message('WNT next match', wnt_match)
+            # red.redditor('ussoccer_bot').message('MNT next match', mnt_match)
+            # red.redditor('ussoccer_bot').message('WNT next match', wnt_match)
             if mnt_match_today:
                 push(mnt_match, 'MNT', redd)
             if wnt_match_today:
@@ -578,9 +608,10 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
                 if not debug:
                     redd.redditor('RedRavens').message('Unable to update sidebar',
                                                        'Unable to update sidebar on {0:%m/%d at %I:%M%p} '
-                                                        'because of {1:}; {2:}'.format(now,
-                                                                                       excep, traceback.format_exc())
-                                      )
+                                                       'because of {1:}; {2:}'.format(now,
+                                                                                      excep, traceback.format_exc()
+                                                                                      )
+                                                       )
                     logging.exception("ERROR: Couldn't update sidebar because of %s; %s", excep,
                                       traceback.format_exc())
                 else:
@@ -600,7 +631,7 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
 
 def startbot() -> None:
     if sys.platform == 'darwin':
-        force = True
+        force = False
 
         if force:
             send_message = True
@@ -612,8 +643,13 @@ def startbot() -> None:
         dailytodos.main()
 
     elif sys.platform == 'linux' and 'pi' in os.getcwd():
-        new_main(sendmessage=True, debug=False)
-        dailytodos.main()
+        force = True
+        if force:
+            new_main(sendmessage=True, debug=False)
+            dailytodos.main()
+        else:
+            new_main(sendmessage=False, debug=True)
+            dailytodos.main()
 
     else:
         new_main(sendmessage=True, debug=False)
