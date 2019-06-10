@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     28 APR 2019   #
+#    LAST UPDATED     28 MAY 2019   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -129,7 +129,7 @@ def fix_venue(venue: str) -> str:
     :param venue: String of a stadium, city, country/state
     :return: String of city, or @country if away
     """
-    venue = venue.replace("Match Guide", "").strip()
+    '''venue = venue.replace("Match Guide", "").strip()
     countries = ['Netherlands', 'England', 'Chile', 'Sweden',
                  'Canada', 'Denmark', 'France',
                  'Costa Rica', 'Honduras', 'Mexico', 'Switzerland',
@@ -170,7 +170,12 @@ def fix_venue(venue: str) -> str:
     if venue in countries:
         venue = '@' + venue
 
+    if 'USA' not in venue:
+        venue = '@{}'.format(venue)
+    '''
+
     return venue
+
 
 
 def fix_time(time: str) -> str:
@@ -211,13 +216,14 @@ def fix_time(time: str) -> str:
                     time = '{}:00 PM'.format(local)
             else:
                 time = str(local) + ':00' + time[ind:]
+
+
+        time = time.replace(' ET', '').replace(' CT', '').replace(' MT', '')
+        time = time.replace('HT', '').replace(' PT', '').replace(' ', '')
+
+        return time
     else:
-        time = 'TBD '
-
-    time = time.replace(' ET', '').replace(' CT', '').replace(' MT', '')
-    time = time.replace('HT', '').replace(' PT', '').replace(' ', '')
-
-    return time
+        return 'TBD '
 
 
 def fix_date(input_: str, dontcare: bool = False):
@@ -261,32 +267,42 @@ def fix_watch(watch: str) -> str:
     return watch
 
 
-def fix_matchtype(opponent: str, hint: str) -> str:
+def fix_matchtype(code: str) -> str:
     """
     Determine the match type
-    :param opponent: String of team vs opponent
-    :param hint: String of un-fixed opponent which possibly gives a matchtype hint
+    :param code: String of competition code from ussoccer website
     :return: String of matchtype
     """
-    matchtype = 'F'
-    wnt_teams = ['Japan', 'Brazil', 'England']
+    # wnt_teams = ['Japan', 'Brazil', 'England']
     '''
     wcq = ['Thailand', 'Chile', 'Sweden']
     wcq1 = ['Ukraine', 'Nigeria', 'Qatar']
-    '''
+    
     if 'World Cup' in hint:
         matchtype = 'WC'
     if 'Gold Cup' in hint:
         matchtype = 'GC'
-    '''
+    
     gold_cup = ['Panama', 'Trinidad Tobago', 'Guyana']
     if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
         matchtype = 'GC'
     if any(country in opponent for country in wcq) and 'U-' not in opponent and 'WNT' in opponent:
         matchtype = 'WC'
-    '''
+    
     if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in wnt_teams):
         matchtype = 'T'
+    '''
+    match_dict = {
+        'FRI': 'F',
+        'UWC': 'WC',
+        'WWC': 'WC',
+        'CGC': 'GC',
+    }
+
+    try:
+        matchtype = match_dict[code]
+    except KeyError:
+        matchtype = 'UNK'
 
     return matchtype
 
@@ -308,22 +324,24 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
     mnt_sendmatch, wnt_sendmatch, mnt_match_today, wnt_match_today = True, True, False, False
 
     for match in ussoccerapi.schedule():
-        # (date, time, opponent, venue, watch)
-        # (  0,    1,     2    ,   3  ,   4  )
-        date = match[0]
+        # date, time, opponent, venue, watch, comp, comp_code
+        # (  0,    1,     2    ,   3  ,   4 ,   5,    6 )
+        date_time = match[0]
         try:
             venue = match[3]
         except KeyError:
             venue = 'TBD'
+
         try:
             temp_opponent = match[2]
             opponent = fix_opponent(temp_opponent)
         except KeyError:
-            opponent = temp_opponent = 'TBD'
+            opponent = 'TBD'
         except ValueError:
-            opponent = temp_opponent = 'TBD'
+            opponent = 'TBD'
         time = match[1]
-        try:
+        comp_code = match[6]
+        '''try:
             watch = match[4].strip().replace('TICKETS', '')
             watch = re.sub(r'^Ticket Info *', '', watch)
             watch = re.sub(r'^| Buy Tickets*', '', watch)
@@ -331,15 +349,18 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
             watch = watch.replace('Buy Tickets', '')
         except KeyError:
             watch = ' '
+            '''
+        watch = match[4]
 
-        date, year = fix_date(date)
+        date = date_time.date()
+        year = str(date_time.year)
         venue = fix_venue(venue)
         watch = fix_watch(watch)
-        time = fix_time(time)
+        # time = fix_time(time)
         try:
-            matchtype = fix_matchtype(opponent, temp_opponent)
+            matchtype = fix_matchtype(comp_code)
         except NameError:
-            matchtype = fix_matchtype(opponent, 'TBD')
+            matchtype = 'UNK'
 
         if date >= datetime.datetime.today().date():
             if 'MNT' in opponent and 'U-' not in opponent and current_year == year and mnt_times < limit and \
@@ -402,6 +423,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 u20wnt_table = construct_schedule_table("U-20 WOMEN'S NATIONAL TEAM", u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
+
     return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, wnt_match,\
         mnt_match_today, wnt_match_today
 
@@ -420,8 +442,8 @@ def construct_schedule_table(team: str, table: str, opponent: str, venue: str, d
     :param matchtype: String of matchtype
     :return: Void, edits table
     """
-    if '@' in venue:
-        opponent = '@{}'.format(opponent)
+    '''if '@' in venue:
+        opponent = '@{}'.format(opponent)'''
     if table:
         table += "{0}|{1:%b %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
@@ -557,15 +579,17 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
         mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match,\
             wnt_match, mnt_match_today, wnt_match_today = make_schedule(current_year, mnt_times, wnt_times, limit)
 
-        mnt, wnt = make_results(mnttimes, wnttimes, limit)
+        if mnt_match and wnt_match:
+            pass
+        # mnt, wnt = make_results(mnttimes, wnttimes, limit)
 
         all_tables = [mnt_table, wnt_table, u23mnt_table,
-                      u23wnt_table, u20mnt_table, u20wnt_table, mnt, wnt]
+                      u23wnt_table, u20mnt_table, u20wnt_table,
+                      #mnt, wnt
+                      ]
         alltext = create_text(all_tables, now)
 
         updatedsidebar = update_sidebar("ussoccer", alltext, redd, debug)
-
-        # red = praw_oauth2.redravens("/u/RedRavens Sending match info V2")
 
         if not mnt_match:
             mnt_match = 'Unable to determine MNT next match'
@@ -573,8 +597,6 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
             wnt_match = 'Unable to determine WNT next match'
 
         if sendmessage:
-            # red.redditor('ussoccer_bot').message('MNT next match', mnt_match)
-            # red.redditor('ussoccer_bot').message('WNT next match', wnt_match)
             if mnt_match_today:
                 push(mnt_match, 'MNT', redd)
             if wnt_match_today:
