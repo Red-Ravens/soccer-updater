@@ -1,14 +1,13 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     28 MAY 2019   #
+#    LAST UPDATED     11 NOV 2021   #
 #####################################
 """
 Scrapes ussoccer.com for Schedule and Results
 """
+import re
 import requests
-import json
 import datetime
-import pytz
 from bs4 import BeautifulSoup
 
 
@@ -17,59 +16,87 @@ def schedule() -> list:
     Fetch schedule data
     :return: List of matches as tuples
     """
-    link = 'http://www.ussoccer.com/schedule-tickets/'
-    r = requests.get(link)
-    text = r.text
-    json_text = text[text.index('id="__JSS_STATE__">'):]
-    json_text = json_text.replace('id="__JSS_STATE__">', '')
-    json_text = json_text[:json_text.index('</script><script type="application/ld+json">')].strip()
-    json_text = json.loads(json_text)
-    matches_info = json_text["sitecore"]["route"]["placeholders"]\
-        ["jss-main"][0]["placeholders"]["jss-layout-standard-template"][2]["matches"]
+    def fetch(url: str, team: str) -> list:
+        """
 
-    eastern_timezone = pytz.timezone("US/Eastern")
+        :return: list of date, time, opponent, '', tv, '', competition]
+        """
+        toreturn = []
 
-    id_dict = {}
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1)             '
+                                 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95'}
+        text = requests.get(url, headers=headers).text
+        soup = BeautifulSoup(text, features="html.parser")
 
-    # get Team ID so that the teams can be filtered later
-    for team in json_text["sitecore"]["route"]["placeholders"]\
-        ["jss-main"][0]["placeholders"]["jss-layout-standard-template"][2]["teams"]:
-        name = str(team["name"]).replace('\xa0', ' ')
-        opta_id = team["optaId"]
-        id_dict[opta_id] = name
+        table = soup.find('table', class_='Table')
 
-
-    matches = []  # (date, time, opponent, venue, watch)
-
-    for match in matches_info:
-        date_time = match["dateTime"]
-        date_time = datetime.datetime.strptime(date_time, '%Y-%m-%dT%H:%M:%SZ')
-        est_time = eastern_timezone.fromutc(date_time)
-        # date = '{0:%b %d}'.format(est_time)
-        time = '{0:%I:%M%p}'.format(est_time)
-        venue = match["venue"]["country"]
-        if match["contestants"][0]["code"] == 'USA':
-            team_name = id_dict[match["contestants"][0]["id"]].replace("Men's National Team", "MNT")
-            team_name = team_name.replace("Women's National Team", "WNT").replace('U.S. ', '')
-            opponent = match["contestants"][1]["name"]
-        else:
-            team_name = id_dict[match["contestants"][1]["id"]].replace("Men's National Team", "MNT")
-            team_name = team_name.replace("Women's National Team", "WNT").replace('U.S. ', '')
-            opponent = match["contestants"][0]["name"]
-
-        opponent = '{} vs {}'.format(team_name, opponent).replace("U20", '').replace("U23", '').replace("U17", '').strip()
-        comp = match["competition"]["name"]
-        comp_code = match["competition"]["code"]
         try:
-            watch = match["sitecoreData"]["link1"]["value"]["text"]
-        except KeyError:
-            watch = 'TBD'
+            for i, tr in enumerate(table):
+                if i == 2:
+                    for td in tr:
+                        date = ''
+                        time = ''
+                        opponent = ''
+                        tv = ''
+                        competition = ''
+                        us_first = False
+                        for ind, tr2 in enumerate(td):
+                            if ind == 0:
+                                date = datetime.datetime.strptime(tr2.text, '%a, %b %d').replace(
+                                    year=datetime.datetime.now().year)
+                            if ind == 1:
+                                if tr2.text.upper().strip() == 'UNITED STATES':
+                                    us_first = True
+                                else:
+                                    opponent = '{} vs {}'.format(team, tr2.text)
+                            if ind == 3:
+                                if us_first:
+                                    opponent = '{} vs {}'.format(team, tr2.text)
+                                else:
+                                    continue
+                            if ind == 4:
+                                time = tr2.text
+                            if ind == 5:
+                                competition = tr2.text
+                            if ind == 6:
+                                tv = tr2.text
+                        toreturn.append((date, time, opponent, '', tv, '', competition))
+        except TypeError:
+            return []
 
+        return toreturn
 
-        matches.append([est_time, time, opponent, venue, watch, comp, comp_code])
+    matches = []
 
+    url1 = 'https://www.espn.com/soccer/team/fixtures/_/id/660/united-states'
+    url2 = 'https://www.espn.com/soccer/team/fixtures/_/id/2765/united-states'
+    url3 = 'https://www.espn.com/soccer/team/fixtures/_/id/2829/united-states-u23'
+    url4 = 'https://www.espn.com/soccer/team/fixtures/_/id/2833/united-states-u20'
 
+    mnt = fetch(url1, 'MNT')
+    wnt = fetch(url2, 'WNT')
+    u23mnt = fetch(url3, 'U-23 MNT')
+    u20mnt = fetch(url4, 'U-20 MNT')
+
+    if mnt:
+        for line in mnt:
+            matches.append(line)
+
+    if wnt:
+        for line in wnt:
+            matches.append(line)
+
+    if u23mnt:
+        for line in u23mnt:
+            matches.append(line)
+
+    if u20mnt:
+        for line in u20mnt:
+            matches.append(line)
+
+    # [date, time, opponent, venue, TV, competition, competition code]
     return matches
+    
 
 
 def results() -> list:
@@ -77,39 +104,88 @@ def results() -> list:
     Fetches results data from the link
     :return: List of match results as a tuple
     """
-    link = 'http://www.ussoccer.com/schedule-tickets/'
-    r = requests.get(link)
-    text = r.text
-    json_text = text[text.index('id="__JSS_STATE__">'):]
-    json_text = json_text.replace('id="__JSS_STATE__">', '')
-    json_text = json_text[:json_text.index('</script><script type="application/ld+json">')].strip()
-    json_text = json.loads(json_text)
-    matches_info = json_text["sitecore"]["route"]["placeholders"] # \
-      #  ["jss-main"][0]["placeholders"]["jss-layout-standard-template"][2]["matches"]
+    def fetch(url: str, team: str) -> list:
+        """
 
-    with open('/Users/Alex/Desktop/output.json', 'w') as files:
-        json.dump(matches_info, files)
+        :return: list of date, time, opponent, '', tv, '', competition]
+        """
+        toreturn = []
 
-    text = requests.get(link).text
-    soup = BeautifulSoup(text, "html.parser")
-    matches = []  # (date, opponent, result)
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1)             '
+                                 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95'}
+        text = requests.get(url, headers=headers).text
+        soup = BeautifulSoup(text, features="html.parser")
 
-    for num, tr in enumerate(soup.find('table', class_='card-table match-results match-table').find_all('tr')):
-        if num != 0:
-            for _ in tr:
-                date, opponent, result, __, __, __ = [td.get_text(' ', strip=True) for td in tr('td')]
-                if len(matches) > 0:
-                    if matches[-1][1] != opponent:  # matches[-1][0] != date and
-                        matches.append((date, opponent, result))
-                    else:
-                        pass
-                else:
-                    matches.append((date, opponent, result))
+        table = soup.find('table', class_='Table')
+
+        try:
+            for i, tr in enumerate(table):
+                if i == 2:
+                    for td in tr:
+                        date = ''
+                        time = ''
+                        opponent = ''
+                        tv = ''
+                        competition = ''
+                        us_first = False
+                        for ind, tr2 in enumerate(td):
+                            if ind == 0:
+                                date = datetime.datetime.strptime(tr2.text, '%a, %b %d').replace(
+                                    year=datetime.datetime.now().year)
+                            if ind == 1:
+                                if tr2.text.upper().strip() == 'UNITED STATES':
+                                    us_first = True
+                                else:
+                                    opponent = '{} vs {}'.format(team, tr2.text)
+                            if ind == 3:
+                                if us_first:
+                                    opponent = '{} vs {}'.format(team, tr2.text)
+                                else:
+                                    continue
+                            if ind == 4:
+                                time = tr2.text
+                            if ind == 5:
+                                competition = tr2.text
+                            if ind == 6:
+                                tv = tr2.text
+                        toreturn.append((date, time, opponent, '', tv, '', competition))
+        except TypeError:
+            return []
+
+        return toreturn
+
+    matches = []
+
+    url1 = 'https://www.espn.com/soccer/team/results/_/id/660/united-states'
+    url2 = 'https://www.espn.com/soccer/team/results/_/id/2765/united-states'
+    url3 = 'https://www.espn.com/soccer/team/results/_/id/2829/united-states-u23'
+    url4 = 'https://www.espn.com/soccer/team/results/_/id/2833/united-states-u20'
+
+    mnt = fetch(url1, 'MNT')
+    wnt = fetch(url2, 'WNT')
+    u23mnt = fetch(url3, 'U-23 MNT')
+    u20mnt = fetch(url4, 'U-20 MNT')
+
+    if mnt:
+        for line in mnt:
+            matches.append(line)
+
+    if wnt:
+        for line in wnt:
+            matches.append(line)
+
+    if u23mnt:
+        for line in u23mnt:
+            matches.append(line)
+
+    if u20mnt:
+        for line in u20mnt:
+            matches.append(line)
+
     return matches
 
 
 if __name__ == '__main__':
-    # results()
     exe = schedule()
-    for line in exe:
-        print(line)
+    for line_ in exe:
+        print(line_)
