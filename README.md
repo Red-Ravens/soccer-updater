@@ -17,7 +17,7 @@ The only difference between the two is the way in which the sidebar is updated. 
 
 Because I had always intended to use [pythonanywhere](https://wwpythonanywhere.com) to run this script daily, I had to develop a way to use their website which has strict whitelists and blacklists. Since US Soccer doesn't currently have an API that provides match info, I used [importio](https://www.import.io/) to build a custom JSON API that also complies with pythonanywhere's whitelist. The two links in `SoccerUpdaterImportio.py` return full upcoming match info and full past match info, respectively. 
 
-This has since been deprecated since I got a Rasperry Pi. Now, `BeautifulSoup4` is used to parse the US soccer website.
+This has since been deprecated since I got a Rasperry Pi. Now, `BeautifulSoup4` is used to parse the ~~US soccer~~ ESPNFC site for each team.
 
 #### Making Markdown
 
@@ -27,7 +27,7 @@ The next section parses the importio JSON and creates tables. The tables are div
 
 `SoccerUpdaterImportio.py` uses the HTMLParser standard library and PRAW to update the sidebar.
 
-`updater.py` uses string contatenation and search to paste the table markdown between a `[](#start)` and a `[](#end)` tag in the sidebar code and PRAW to update the sidebar.
+`updater.py` uses string contatenation and search to paste the table markdown between a `[](#start)` and a `[](#end)` tag in the sidebar code and `praw` to update the sidebar.
 
 ### Known Issues
 
