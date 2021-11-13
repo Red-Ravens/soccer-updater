@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     28 MAY 2019   #
+#    LAST UPDATED     13 NOV 2021   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -71,34 +71,6 @@ def soccer():
                 print('Wrote WNT next match')
 
 
-# noinspection PyUnresolvedReferences
-def push(text: str, details: str, r: praw) -> None:
-    """
-    Push a message to computer
-    :param text: MNT or WNT
-    :param details: Match details
-    :param r: PRAW instance
-    :return: None
-    """
-    try:
-        from pushbullet import Pushbullet
-        with open('token.txt') as files:
-            token = files.read().strip()
-        pb = Pushbullet(token)
-        try:
-            lst = text.split('?')
-            pb.push_note('{} match today at {} on {}'.format(details, lst[4], lst[3]),
-                         '', device=pb.get_device('iPhone'))
-        except IndexError:
-            pb.push_note('{}{}'.format(text, details),
-                         '', device=pb.get_device('iPhone'))
-
-    except ImportError:
-        lst = text.split('?')
-        r.send_message('RedRavens', '{} Match Today'.format(details),
-                       '{} match today at {} on {}'.format(details, lst[4], lst[3]))
-
-
 def fix_opponent(oppon: str) -> str:
     """
     Fixes opponent string information
@@ -129,53 +101,7 @@ def fix_venue(venue: str) -> str:
     :param venue: String of a stadium, city, country/state
     :return: String of city, or @country if away
     """
-    '''venue = venue.replace("Match Guide", "").strip()
-    countries = ['Netherlands', 'England', 'Chile', 'Sweden',
-                 'Canada', 'Denmark', 'France',
-                 'Costa Rica', 'Honduras', 'Mexico', 'Switzerland',
-                 'Cyprus', 'New Zealand', 'Germany',
-                 'Serbia', 'Brazil', 'Trinidad & Tobago', 'Colombia',
-                 'Guatemala', 'Jamaica', 'Grenada', 'India',
-                 'Croatia', 'Spain', 'Argentina', 'Puerto Rico',
-                 'Papua New Guinea', 'Cuba', 'Jordan', 'St. Vincent and the Grenadines',
-                 'Portugal', 'Ireland', 'Scotland', 'Belgium', 'Poland', 'Qatar']
-
-    cities = {'Foxborough': 'Boston', 'Commerce City': 'Denver',
-              'Frisco': 'Dallas', 'Carson': 'Los Angeles',
-              'St.': 'St. Louis', 'Alto': 'Palo Alto',
-              'Harrison': 'Newark', 'Sandy': 'Salt Lake City', 'Sandy Utah': 'Salt Lake City',
-              'Lakewood Ranch': 'Sarasota', 'Glendale': 'Phoenix',
-              'Belo Horizonte': 'Brazil', 'Manaus': 'Brazil'}
-
-    if len(venue) > 4:
-        if any(country in venue for country in countries):
-            try:
-                start = venue.index(',') + 2
-            except ValueError:
-                start = venue.index(';') + 2
-            venue = '@' + venue[start:].strip()
-        else:
-            try:
-                start = venue.index(';') + 1
-                try:
-                    end = venue.index(',')
-                    venue = venue[start:end].strip()
-                except ValueError:
-                    venue = venue[start + 1:].strip()
-            except ValueError:
-                pass
-
-    venue = cities[venue] if venue in cities.keys() else venue
-
-    if venue in countries:
-        venue = '@' + venue
-
-    if 'USA' not in venue:
-        venue = '@{}'.format(venue)
-    '''
-
     return venue
-
 
 
 def fix_time(time: str) -> str:
@@ -216,7 +142,6 @@ def fix_time(time: str) -> str:
                     time = '{}:00 PM'.format(local)
             else:
                 time = str(local) + ':00' + time[ind:]
-
 
         time = time.replace(' ET', '').replace(' CT', '').replace(' MT', '')
         time = time.replace('HT', '').replace(' PT', '').replace(' ', '')
@@ -260,7 +185,8 @@ def fix_watch(watch: str) -> str:
                'FS2': 'FS2 ', 'fox soccer 2': 'FSoc2 ',
                'fox soccer plus': 'FSocP ', 'bein sports': 'beIN ',
                'espn networks': 'ESPN ', 'bein': 'beIN',
-               'ussoccer.com': 'ussoccer', '': '?', ' ': '?'}
+               'ussoccer.com': 'ussoccer', '': '?', ' ': '?',
+               'espn2/espn+': 'ESPN2'}
 
     watch = watches[watch.lower()] if watch.lower() in watches.keys() else watch
 
@@ -273,36 +199,26 @@ def fix_matchtype(code: str) -> str:
     :param code: String of competition code from ussoccer website
     :return: String of matchtype
     """
-    # wnt_teams = ['Japan', 'Brazil', 'England']
-    '''
-    wcq = ['Thailand', 'Chile', 'Sweden']
-    wcq1 = ['Ukraine', 'Nigeria', 'Qatar']
-    
-    if 'World Cup' in hint:
-        matchtype = 'WC'
-    if 'Gold Cup' in hint:
-        matchtype = 'GC'
-    
-    gold_cup = ['Panama', 'Trinidad Tobago', 'Guyana']
-    if any(country in opponent for country in gold_cup) and 'U-' not in opponent:
-        matchtype = 'GC'
-    if any(country in opponent for country in wcq) and 'U-' not in opponent and 'WNT' in opponent:
-        matchtype = 'WC'
-    
-    if 'WNT' in opponent and 'U-' not in opponent and any(country in opponent for country in wnt_teams):
-        matchtype = 'T'
-    '''
     match_dict = {
         'FRI': 'F',
+        'International Friendly': 'F',
         'UWC': 'WC',
         'WWC': 'WC',
         'CGC': 'GC',
+        'FRW': 'F',
+        'CONCACAF Nations League': 'CNL',
+        "Women's International Friendly": 'F',
+        "CONCACAF Men's Olympic Qualifying": 'OLY',
+        "Women's Olympic Tournament": 'OLY',
+        "SheBelieves Cup": 'SB',
+        "CONCACAF Gold Cup": 'GC',
+        'FIFA World Cup Qualifying - CONCACAF': 'WCQ',
     }
 
     try:
         matchtype = match_dict[code]
     except KeyError:
-        matchtype = 'UNK'
+        matchtype = code
 
     return matchtype
 
@@ -327,10 +243,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
         # date, time, opponent, venue, watch, comp, comp_code
         # (  0,    1,     2    ,   3  ,   4 ,   5,    6 )
         date_time = match[0]
-        try:
-            venue = match[3]
-        except KeyError:
-            venue = 'TBD'
+        venue = 'TBD'
 
         try:
             temp_opponent = match[2]
@@ -341,15 +254,6 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
             opponent = 'TBD'
         time = match[1]
         comp_code = match[6]
-        '''try:
-            watch = match[4].strip().replace('TICKETS', '')
-            watch = re.sub(r'^Ticket Info *', '', watch)
-            watch = re.sub(r'^| Buy Tickets*', '', watch)
-            watch = re.sub(r'^| Buy Now*', '', watch)
-            watch = watch.replace('Buy Tickets', '')
-        except KeyError:
-            watch = ' '
-            '''
         watch = match[4]
 
         date = date_time.date()
@@ -442,8 +346,6 @@ def construct_schedule_table(team: str, table: str, opponent: str, venue: str, d
     :param matchtype: String of matchtype
     :return: Void, edits table
     """
-    '''if '@' in venue:
-        opponent = '@{}'.format(opponent)'''
     if table:
         table += "{0}|{1:%b %d}|{2}|{3}|{4}\n".format(opponent, date, time, matchtype, watch)
         return table
@@ -596,11 +498,14 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
         if not wnt_match:
             wnt_match = 'Unable to determine WNT next match'
 
+        """
         if sendmessage:
+            
             if mnt_match_today:
                 push(mnt_match, 'MNT', redd)
             if wnt_match_today:
                 push(wnt_match, 'WNT', redd)
+        """
 
         if updatedsidebar and '?' in mnt_match and '?' in wnt_match:
             logging.warning("INFO: Updated sidebar and sent next matches")
