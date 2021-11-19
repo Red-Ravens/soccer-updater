@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     13 NOV 2021   #
+#    LAST UPDATED     19 NOV 2021   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
@@ -275,7 +275,7 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
                 mnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if sys.platform == 'linux':
+                if 'pi' in os.getcwd().lower():
                     with open('/media/pi/USB20FD/matchthread/mnt.txt', 'w') as files:
                         files.write(mnt_match)
                 if date == datetime.datetime.today().date():
@@ -453,7 +453,9 @@ def update_sidebar(sub: str, text: str, reddit: praw, debug: bool = False) -> bo
         print(totalupdate)
         return False
     else:
-        reddit.subreddit(sub).mod.update(description=totalupdate)
+        # This method was deprecated or broke for some reason. Fix is below
+        # reddit.subreddit(sub).mod.update(description=totalupdate)
+        reddit.subreddit('ussoccer').wiki['config/sidebar'].edit(totalupdate)
         return True
 
 
