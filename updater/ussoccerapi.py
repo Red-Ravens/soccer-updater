@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     11 NOV 2021   #
+#    LAST UPDATED     19 NOV 2021   #
 #####################################
 """
 Scrapes ussoccer.com for Schedule and Results
@@ -98,7 +98,6 @@ def schedule() -> list:
     return matches
     
 
-
 def results() -> list:
     """
     Fetches results data from the link
@@ -185,7 +184,76 @@ def results() -> list:
     return matches
 
 
+def schedule2() -> list:
+    """
+    Construct a schedule via FotMob links. Not currently used.
+    :return: list of tuples with (date, kickoff time, team vs opponent, blank, tv, blank, type)
+    """
+    def fetch(url: str, team: str) -> list:
+        holding_list = []
+        toreturn = []
+
+        headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1)             '
+                                 'AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95'}
+        text = requests.get(url, headers=headers).text
+        soup = BeautifulSoup(text, features="html.parser")
+
+        table = soup.find('div', class_="css-177ackh-FixturesCardCSS e13iyrxf0")
+        for index, thing in enumerate(table):
+            if index >= 2:
+                temp_list = []
+                for ind, a in enumerate(thing):
+                    if ind == 0:
+                        if a.text:
+                            temp_list.append(a.text)
+
+                    else:
+                        temp_list.append(a.text)
+
+                if len(temp_list) == 2:
+                    # length = 3 is a result, not an upcoming game
+                    holding_list.append(temp_list)
+
+        for match in holding_list:
+            time = match[0]
+            everything_else = match[1]
+
+            # fix date first
+            try:
+                time_dtime = datetime.datetime.strptime(time[0:11], '%a, %d %b').date()
+            except ValueError:
+                try:
+                    time_dtime = datetime.datetime.strptime(time, '%d %B %Y').date()
+                except ValueError:
+                    time_dtime = None
+
+            # get time of match
+            time = re.compile(r'(\d)+:(\d)+').search(everything_else).group()
+            hour = int(time.split(':')[0])
+            if hour > 12:
+                hour -= 12
+                flag = 'PM'
+            else:
+                flag = 'AM'
+            fixed_time = '{}:{} {}'.format(hour, time.split(':')[1], flag)
+
+            # get team and opponent
+            splitter = '/-|'
+            everything_else = everything_else.replace(time, splitter)
+            team, opponent = everything_else.split(splitter)
+            toreturn.append([time_dtime, fixed_time, team, opponent])
+
+        return toreturn
+
+    return fetch('https://www.fotmob.com/teams/6713/overview/usa', 'MNT')
+
+
 if __name__ == '__main__':
+    """
+    #exe = results()
+    """
     exe = schedule()
     for line_ in exe:
         print(line_)
+
+    # schedule2()
