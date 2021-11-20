@@ -41,7 +41,7 @@ def soccer():
         for msg in r.inbox.unread(limit=None):
             if 'MNT next match' in msg.subject:
                 msg.mark_read()
-                path = '/media/pi/USB20FD/MatchThreader/MNT.txt'
+                path = '/media/pi/USB20FD/matchthread/MNT.txt'
                 with open(path, 'w') as filep:
                     filep.write(msg.body)
                 logging.warning('INFO: Wrote MNT next match')
@@ -51,24 +51,6 @@ def soccer():
                 with open(path1, 'w') as filep:
                     filep.write(msg.body)
                 logging.warning('INFO: Wrote WNT next match')
-
-
-    elif sys.platform == 'darwin':
-        r = praw_oauth2.ussoccer_bot()
-
-        for msg in r.inbox.unread(limit=None):
-            if 'MNT next match' in msg.subject:
-                msg.mark_read()
-                path = '/Users/Alex/Documents/Python/MatchThreader/MNT.txt'
-                with open(path, 'w') as filep:
-                    filep.write(msg.body)
-                print('Wrote MNT next match')
-            elif 'WNT next match' in msg.subject:
-                msg.mark_read()
-                path1 = '/Users/Alex/Documents/Python/MatchThreader/WNT.txt'
-                with open(path1, 'w') as filep:
-                    filep.write(msg.body)
-                print('Wrote WNT next match')
 
 
 def fix_opponent(oppon: str) -> str:
@@ -275,8 +257,11 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
                 mnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if 'pi' in os.getcwd().lower():
+                if sys.platform == 'linux':
                     with open('/media/pi/USB20FD/matchthread/mnt.txt', 'w') as files:
+                        files.write(mnt_match)
+                else:
+                    with open('/Users/Alex/Documents/Python3/matchthread/mnt.txt', 'w') as files:
                         files.write(mnt_match)
                 if date == datetime.datetime.today().date():
                     mnt_match_today = True
@@ -297,6 +282,9 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 wnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
                 if sys.platform == 'linux':
                     with open('/media/pi/USB20FD/matchthread/wnt.txt', 'w') as files:
+                        files.write(wnt_match)
+                else:
+                    with open('/Users/Alex/Documents/Python3/matchthread/wnt.txt', 'w') as files:
                         files.write(wnt_match)
                 if date == datetime.datetime.today().date():
                     wnt_match_today = True
@@ -500,15 +488,6 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
         if not wnt_match:
             wnt_match = 'Unable to determine WNT next match'
 
-        """
-        if sendmessage:
-            
-            if mnt_match_today:
-                push(mnt_match, 'MNT', redd)
-            if wnt_match_today:
-                push(wnt_match, 'WNT', redd)
-        """
-
         if updatedsidebar and '?' in mnt_match and '?' in wnt_match:
             logging.warning("INFO: Updated sidebar and sent next matches")
         elif not updatedsidebar and not debug:
@@ -586,4 +565,3 @@ def startbot() -> None:
 
 if __name__ == '__main__':
     startbot()
-    soccer()
