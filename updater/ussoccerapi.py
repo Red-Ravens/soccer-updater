@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     19 NOV 2021   #
+#    LAST UPDATED     18 SEP 2022   #
 #####################################
 """
 Scrapes ussoccer.com for Schedule and Results
