@@ -1,24 +1,25 @@
 #!/usr/bin/env python3
 #####################################
-#    LAST UPDATED     19 NOV 2021   #
+#    LAST UPDATED     23 SEP 2022   #
 #####################################
 """
 Gets US soccer matches and updates the sidebar
 """
-import json
+import os
+
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 import re
 import sys
-from time import sleep
-import traceback
+import json
+import praw
 import logging
-import logging.handlers
-import os
 import datetime
 import requests
-import praw
+import traceback
 import ussoccerapi
-import dailytodos
 import praw_oauth2
+from time import sleep
+import logging.handlers
 
 
 def get_importio(link: str) -> json:
@@ -57,7 +58,7 @@ def fix_opponent(oppon: str) -> str:
     """
     Fixes opponent string information
     :param oppon: String of an opponent
-    :return: Fixed str
+    :return: Fixed str that must start with MNT or WNT
     """
     if ' present ' in oppon:
         oppon = oppon[:oppon.index(' present ')]
@@ -72,8 +73,13 @@ def fix_opponent(oppon: str) -> str:
 
     if 'the ' in oppon:
         oppon = oppon.replace('the ', '')
+
     if ' - ' in oppon:
         oppon = oppon[:oppon.index(' - ')]
+
+    if 'IR Iran' in oppon:
+        oppon = oppon.replace('IR Iran', 'Iran')
+
     return oppon
 
 
@@ -195,6 +201,8 @@ def fix_matchtype(code: str) -> str:
         "SheBelieves Cup": 'SB',
         "CONCACAF Gold Cup": 'GC',
         'FIFA World Cup Qualifying - CONCACAF': 'WCQ',
+        'FIFA World Cup': 'WC',
+        'CONCACAF W Championship': 'GC',
     }
 
     try:
@@ -257,12 +265,16 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 mnt_times += 1
                 mnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if sys.platform == 'linux':
+                if sys.platform == 'linux' and 'pi' in os.getcwd().lower():
                     with open('/media/pi/USB20FD/matchthread/mnt.txt', 'w') as files:
+                        files.write(mnt_match)
+                elif sys.platform == 'linux':
+                    with open('/home/pymae/mysite/ussoccer/matchthread/mnt.txt', 'w') as files:
                         files.write(mnt_match)
                 else:
                     with open('/Users/Alex/Documents/Python3/matchthread/mnt.txt', 'w') as files:
                         files.write(mnt_match)
+
                 if date == datetime.datetime.today().date():
                     mnt_match_today = True
 
@@ -280,12 +292,17 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                                                      venue, date, watch, time, matchtype)
                 wnt_times += 1
                 wnt_match = '{}?{}?{}?{}?{}'.format(opponent, venue, date, watch, time)
-                if sys.platform == 'linux':
+
+                if sys.platform == 'linux' and 'pi' in os.getcwd().lower():
                     with open('/media/pi/USB20FD/matchthread/wnt.txt', 'w') as files:
+                        files.write(wnt_match)
+                elif sys.platform == 'linux':
+                    with open('/home/pymae/mysite/ussoccer/matchthread/wnt.txt', 'w') as files:
                         files.write(wnt_match)
                 else:
                     with open('/Users/Alex/Documents/Python3/matchthread/wnt.txt', 'w') as files:
                         files.write(wnt_match)
+
                 if date == datetime.datetime.today().date():
                     wnt_match_today = True
 
@@ -315,9 +332,8 @@ def make_schedule(current_year: str, mnt_times: int, wnt_times: int,  # schedule
                 u20wnt_table = construct_schedule_table("U-20 WOMEN'S NATIONAL TEAM", u20wnt_table, opponent,
                                                         venue, date, watch, time, matchtype)
 
-
-    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, wnt_match,\
-        mnt_match_today, wnt_match_today
+    return mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, wnt_match, \
+           mnt_match_today, wnt_match_today
 
 
 def construct_schedule_table(team: str, table: str, opponent: str, venue: str, date: datetime,
@@ -447,12 +463,12 @@ def update_sidebar(sub: str, text: str, reddit: praw, debug: bool = False) -> bo
         return True
 
 
-def new_main(sendmessage: bool = True, debug: bool = False) -> None:
+def new_main(debug: bool = False, get_text: bool = False) -> str:
     """
     Runs the program
-    :param sendmessage: Send message T/F
-    :param debug: Debug T/F
-    :return: Void
+    :param debug: bool to debug and print to console
+    :param get_text: bool to return schedule text and not update the sidebar
+    :return: str, either all_text of schedule or blank
     """
     # constants
     mnt_times, wnt_times, mnttimes, wnttimes = 0, 0, 0, 0
@@ -464,12 +480,12 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
                         filename='log.log', level=logging.WARNING)
     logging.disable(logging.INFO)
 
-    user_agent = "/r/ussoccer sidebar match updater v2.7 by /u/RedRavens /u/ussoccer_b0t"
+    user_agent = "/r/ussoccer sidebar match updater v3.0 by /u/RedRavens /u/ussoccer_b0t"
     redd = praw_oauth2.ussoccer_bot(user_agent)
 
     try:
-        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match,\
-            wnt_match, mnt_match_today, wnt_match_today = make_schedule(current_year, mnt_times, wnt_times, limit)
+        mnt_table, wnt_table, u23mnt_table, u23wnt_table, u20mnt_table, u20wnt_table, mnt_match, \
+        wnt_match, mnt_match_today, wnt_match_today = make_schedule(current_year, mnt_times, wnt_times, limit)
 
         if mnt_match and wnt_match:
             pass
@@ -477,11 +493,14 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
 
         all_tables = [mnt_table, wnt_table, u23mnt_table,
                       u23wnt_table, u20mnt_table, u20wnt_table,
-                      #mnt, wnt
+                      # mnt, wnt
                       ]
-        alltext = create_text(all_tables, now)
+        all_text = create_text(all_tables, now)
 
-        updatedsidebar = update_sidebar("ussoccer", alltext, redd, debug)
+        if get_text:
+            return all_text
+
+        updatedsidebar = update_sidebar("ussoccer", all_text, redd, debug)
 
         if not mnt_match:
             mnt_match = 'Unable to determine MNT next match'
@@ -500,6 +519,8 @@ def new_main(sendmessage: bool = True, debug: bool = False) -> None:
             logging.error("WARNING: Unable to determine MNT next match")
         if 'Unable' in wnt_match:
             logging.error("WARNING: Unable to determine WNT next match")
+
+        return ''
 
     except KeyError:
         print('Encountered KeyError')
@@ -542,25 +563,19 @@ def startbot() -> None:
         force = False
 
         if force:
-            send_message = True
             deb = False
         else:
-            send_message = False
             deb = True
-        new_main(sendmessage=send_message, debug=deb)
-        dailytodos.main()
 
-    elif sys.platform == 'linux' and 'pi' in os.getcwd():
+        new_main(debug=deb)
+
+    # elif sys.platform == 'linux' and 'pi' in os.getcwd():
+    else:
         force = True
         if force:
-            new_main(sendmessage=True, debug=False)
-            dailytodos.main()
+            new_main(debug=False)
         else:
-            new_main(sendmessage=False, debug=True)
-            dailytodos.main()
-
-    else:
-        new_main(sendmessage=True, debug=False)
+            new_main(debug=True)
 
 
 if __name__ == '__main__':
